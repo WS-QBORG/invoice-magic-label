@@ -334,7 +334,7 @@ const MPK_CATEGORIES: CategoryOption[] = [
     keywords: ['telefon', 'phone', 'mobile', 'smartphone']
   },
   {
-    id: 'equipment-tables',
+    id: 'equipment-tablet',
     name: 'Wyposażenie - Tablet',
     mpk: 'MPK870',
     group: '8/7',
