@@ -140,10 +140,25 @@ export function extractVendorNip(text: string): string | undefined {
     searchArea = text.slice(0, nabywcaIndex);
   }
   
-  const nipRegex = /NIP[:\s]*([0-9]{10})/i;
+  const nipRegex = /NIP[:\s-]*([0-9\s-]{10,})/i;
   const match = searchArea.match(nipRegex);
-  
-  return match ? match[1] : undefined;
+
+  if (match) {
+    const digits = match[1].replace(/\D/g, '');
+    if (digits.length === 10) {
+      return digits;
+    }
+  }
+
+  const fallback = searchArea.match(/[0-9\s-]{10,}/);
+  if (fallback) {
+    const digits = fallback[0].replace(/\D/g, '');
+    if (digits.length === 10) {
+      return digits;
+    }
+  }
+
+  return undefined;
 }
 
 /**
@@ -160,16 +175,26 @@ export function extractBuyerNip(text: string): string {
     searchArea = text.slice(nabywcaIndex);
   }
   
-  const nipRegex = /NIP[:\s]*([0-9]{10})/i;
+  const nipRegex = /NIP[:\s-]*([0-9\s-]{10,})/i;
   const match = searchArea.match(nipRegex);
-  
+
   if (match) {
-    return match[1];
+    const digits = match[1].replace(/\D/g, '');
+    if (digits.length === 10) {
+      return digits;
+    }
   }
-  
-  // Fallback: find any 10-digit number in buyer section
-  const fallback = searchArea.match(/([0-9]{10})/);
-  return fallback ? fallback[1] : 'Brak';
+
+  // Fallback: find any 10-digit sequence allowing spaces or hyphens
+  const fallback = searchArea.match(/[0-9\s-]{10,}/);
+  if (fallback) {
+    const digits = fallback[0].replace(/\D/g, '');
+    if (digits.length === 10) {
+      return digits;
+    }
+  }
+
+  return 'Brak';
 }
 
 /**
