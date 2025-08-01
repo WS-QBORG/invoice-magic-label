@@ -4,9 +4,23 @@
  */
 
 // PDF.js types (simplified)
+interface PdfJsPage {
+  getTextContent(): Promise<{ items: { str: string }[] }>
+}
+
+interface PdfJsDocument {
+  numPages: number
+  getPage(pageNumber: number): Promise<PdfJsPage>
+}
+
+interface PdfjsLib {
+  getDocument(options: { data: ArrayBuffer }): { promise: Promise<PdfJsDocument> }
+  GlobalWorkerOptions: { workerSrc: string }
+}
+
 declare global {
   interface Window {
-    pdfjsLib: any;
+    pdfjsLib: PdfjsLib
   }
 }
 
@@ -31,7 +45,7 @@ export async function extractTextFromPdf(file: File): Promise<string> {
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
       const content = await page.getTextContent();
-      const strings = content.items.map((item: any) => item.str);
+      const strings = content.items.map(item => item.str);
       fullText += strings.join('\n') + '\n';
     }
     
@@ -90,10 +104,10 @@ export function extractVendorName(text: string): string {
   
   // Fallback: look for company indicators before "Nabywca" section
   const nabywcaIndex = text.search(/Nabywca/i);
-  let searchArea = nabywcaIndex >= 0 ? text.slice(0, nabywcaIndex) : text;
+  const searchArea = nabywcaIndex >= 0 ? text.slice(0, nabywcaIndex) : text;
   
   const lines = searchArea.split(/\n/);
-  for (let line of lines) {
+  for (const line of lines) {
     // Look for company names with common patterns
     if ((/sp\.?\s*z\s*o\.?o\.?/i.test(line) || 
          /s\.a\./i.test(line) || 
@@ -117,7 +131,7 @@ export function extractVendorName(text: string): string {
  */
 export function extractBuyerName(text: string): string {
   const nabywcaRegex = /Nabywca:?\s*\n?([^\n]+)/i;
-  let match = text.match(nabywcaRegex);
+  const match = text.match(nabywcaRegex);
   
   if (match) {
     return match[1].trim();
@@ -205,8 +219,8 @@ export function extractBuyerNip(text: string): string {
 export function extractInvoiceNumber(text: string): string {
   // Look for patterns like FZ 328/01/2023 or FA/2341/6/2025/R
   const patterns = [
-    /([A-Z]{1,3}[\/\s]*\d+[\/\-]\d+[\/\-]\d{2,4}[\/\-]?[A-Z]?)/,
-    /(\d+[\/\-]\d+[\/\-]\d{4})/
+    /([A-Z]{1,3}[/\s]*\d+[/-]\d+[/-]\d{2,4}[/-]?[A-Z]?)/,
+    /(\d+[/-]\d+[/-]\d{4})/
   ];
   
   for (const pattern of patterns) {

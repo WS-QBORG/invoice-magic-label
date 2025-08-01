@@ -28,6 +28,14 @@ export interface InvoiceCounter {
   year: number;        // Current year
 }
 
+export interface PendingInvoiceData {
+  vendorName: string;
+  vendorNip?: string;
+  buyerName: string;
+  buyerNip: string;
+  invoiceNumber: string;
+}
+
 export interface ProcessingResult {
   success: boolean;
   data?: InvoiceData;
