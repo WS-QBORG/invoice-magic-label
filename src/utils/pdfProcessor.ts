@@ -3,26 +3,10 @@
  * Handles PDF.js integration and text parsing
  */
 
-// PDF.js types (simplified)
-interface PdfJsPage {
-  getTextContent(): Promise<{ items: { str: string }[] }>
-}
+import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
+import workerSrc from 'pdfjs-dist/build/pdf.worker.min.js?url';
 
-interface PdfJsDocument {
-  numPages: number
-  getPage(pageNumber: number): Promise<PdfJsPage>
-}
-
-interface PdfjsLib {
-  getDocument(options: { data: ArrayBuffer }): { promise: Promise<PdfJsDocument> }
-  GlobalWorkerOptions: { workerSrc: string }
-}
-
-declare global {
-  interface Window {
-    pdfjsLib: PdfjsLib
-  }
-}
+GlobalWorkerOptions.workerSrc = workerSrc;
 
 /**
  * Extract text content from PDF file
@@ -31,13 +15,8 @@ declare global {
  */
 export async function extractTextFromPdf(file: File): Promise<string> {
   try {
-    // Dynamically load PDF.js if not already loaded
-    if (!window.pdfjsLib) {
-      await loadPdfJs();
-    }
-
     const arrayBuffer = await file.arrayBuffer();
-    const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const pdf = await getDocument({ data: arrayBuffer }).promise;
     
     let fullText = '';
     
@@ -56,23 +35,7 @@ export async function extractTextFromPdf(file: File): Promise<string> {
   }
 }
 
-/**
- * Load PDF.js library dynamically
- */
-async function loadPdfJs(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js';
-    script.onload = () => {
-      // Configure worker
-      window.pdfjsLib.GlobalWorkerOptions.workerSrc =
-        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
-      resolve();
-    };
-    script.onerror = () => reject(new Error('Failed to load PDF.js'));
-    document.head.appendChild(script);
-  });
-}
+
 
 /**
  * Extract vendor (Sprzedawca) name from invoice text
