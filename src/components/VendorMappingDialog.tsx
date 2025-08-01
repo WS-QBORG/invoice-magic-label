@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { useState, useEffect } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,11 +8,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { getAvailableCategories } from '@/utils/categoryDetector';
+import { useToast } from '@/hooks/use-toast';
 
 interface VendorMappingDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (mpk: string, group: string, category?: string) => void;
+  onSave: (mpk: string, group: string, category?: string, vendorName?: string) => void;
   vendorName: string;
   suggestedMpk?: string;
   suggestedGroup?: string;
@@ -29,17 +30,30 @@ export function VendorMappingDialog({
   onClose,
   onSave,
   vendorName,
-  suggestedMpk = 'MPK000',
-  suggestedGroup = '0/0',
+  suggestedMpk,
+  suggestedGroup,
   suggestedCategory,
-  confidence = 0
+  confidence
 }: VendorMappingDialogProps) {
-  const [mpk, setMpk] = useState(suggestedMpk);
-  const [group, setGroup] = useState(suggestedGroup);
-  const [customCategory, setCustomCategory] = useState('');
+  const [mpk, setMpk] = useState('');
+  const [group, setGroup] = useState('');
+  const [category, setCategory] = useState('');
+  const [editableVendorName, setEditableVendorName] = useState('');
   const [selectedPreset, setSelectedPreset] = useState<string>('');
-  
+
+  const { toast } = useToast();
   const categories = getAvailableCategories();
+
+  // Reset form when dialog opens
+  useEffect(() => {
+    if (isOpen) {
+      setMpk(suggestedMpk || '');
+      setGroup(suggestedGroup || '');
+      setCategory(suggestedCategory || '');
+      setEditableVendorName(vendorName || '');
+      setSelectedPreset('');
+    }
+  }, [isOpen, suggestedMpk, suggestedGroup, suggestedCategory, vendorName]);
 
   const handlePresetSelect = (categoryId: string) => {
     const category = categories.find(c => c.id === categoryId);
@@ -47,76 +61,103 @@ export function VendorMappingDialog({
       setMpk(category.mpk);
       setGroup(category.group);
       setSelectedPreset(categoryId);
-      setCustomCategory(category.name);
+      setCategory(category.name);
     }
   };
 
   const handleSave = () => {
-    if (!mpk || !group) {
-      alert('Proszę podać kod MPK i grupę');
+    if (!mpk.trim() || !group.trim() || !editableVendorName.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Błąd walidacji",
+        description: "Nazwa sprzedawcy, MPK i Grupa są wymagane"
+      });
       return;
     }
-    onSave(mpk, group, customCategory || suggestedCategory);
+
+    onSave(mpk.trim(), group.trim(), category.trim() || undefined, editableVendorName.trim());
     onClose();
   };
 
   const handleCancel = () => {
-    // Reset to suggested values
-    setMpk(suggestedMpk);
-    setGroup(suggestedGroup);
-    setCustomCategory('');
+    // Reset to initial values
+    setMpk(suggestedMpk || '');
+    setGroup(suggestedGroup || '');
+    setCategory(suggestedCategory || '');
+    setEditableVendorName(vendorName || '');
     setSelectedPreset('');
     onClose();
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold">
             Przypisz kategorię dla sprzedawcy
           </DialogTitle>
+          <DialogDescription>
+            {vendorName === 'Nie znaleziono' ? (
+              'Nie udało się automatycznie wykryć sprzedawcy z faktury. Wprowadź dane ręcznie.'
+            ) : (
+              <>
+                Nie udało się automatycznie przypisać MPK i grupy dla sprzedawcy: <strong>{vendorName}</strong>
+                {confidence && confidence > 0 && (
+                  <>
+                    <br />
+                    <span className="text-sm text-muted-foreground">
+                      Pewność automatycznej sugestii: {Math.round(confidence * 100)}%
+                    </span>
+                  </>
+                )}
+              </>
+            )}
+          </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-6">
-          {/* Vendor info */}
-          <Card>
-            <CardContent className="pt-4">
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-muted-foreground">
-                  Sprzedawca
-                </Label>
-                <p className="font-medium">{vendorName}</p>
-                
-                {suggestedCategory && confidence > 0.5 && (
-                  <div className="flex items-center gap-2 mt-2">
-                    <Badge variant="secondary">
-                      Sugerowana kategoria: {suggestedCategory}
-                    </Badge>
-                    <Badge variant={confidence > 0.8 ? "default" : "outline"}>
-                      Pewność: {Math.round(confidence * 100)}%
-                    </Badge>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          {/* Manual vendor input */}
+          <div className="space-y-2">
+            <Label htmlFor="vendor-name">Nazwa sprzedawcy *</Label>
+            <Input
+              id="vendor-name"
+              value={editableVendorName}
+              onChange={(e) => setEditableVendorName(e.target.value)}
+              placeholder="np. Verizon Connect Poland Sp. z o.o."
+            />
+          </div>
+
+          {/* Suggested category info */}
+          {suggestedCategory && confidence && confidence > 0.5 && (
+            <Card>
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary">
+                    Sugerowana kategoria: {suggestedCategory}
+                  </Badge>
+                  <Badge variant={confidence > 0.8 ? "default" : "outline"}>
+                    Pewność: {Math.round(confidence * 100)}%
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Quick presets */}
           <div className="space-y-3">
             <Label className="text-sm font-medium">Wybierz kategorię</Label>
             <div className="grid grid-cols-2 gap-2">
-              {categories.map((category) => (
+              {categories.map((categoryOption) => (
                 <Button
-                  key={category.id}
-                  variant={selectedPreset === category.id ? "default" : "outline"}
+                  key={categoryOption.id}
+                  variant={selectedPreset === categoryOption.id ? "default" : "outline"}
                   className="justify-start text-left h-auto p-3"
-                  onClick={() => handlePresetSelect(category.id)}
+                  onClick={() => handlePresetSelect(categoryOption.id)}
                 >
                   <div className="space-y-1">
-                    <div className="font-medium">{category.name}</div>
+                    <div className="font-medium">{categoryOption.name}</div>
                     <div className="text-xs text-muted-foreground">
-                      {category.mpk} • {category.group}
+                      {categoryOption.mpk} • {categoryOption.group}
                     </div>
                   </div>
                 </Button>
@@ -127,7 +168,7 @@ export function VendorMappingDialog({
           {/* Manual input */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="mpk">Kod MPK</Label>
+              <Label htmlFor="mpk">MPK *</Label>
               <Input
                 id="mpk"
                 value={mpk}
@@ -137,7 +178,7 @@ export function VendorMappingDialog({
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="group">Grupa</Label>
+              <Label htmlFor="group">Grupa *</Label>
               <Input
                 id="group"
                 value={group}
@@ -152,8 +193,8 @@ export function VendorMappingDialog({
             <Label htmlFor="category">Opis kategorii (opcjonalny)</Label>
             <Textarea
               id="category"
-              value={customCategory}
-              onChange={(e) => setCustomCategory(e.target.value)}
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
               placeholder="np. Koszty pojazdów - lokalizacja GPS"
               rows={2}
             />

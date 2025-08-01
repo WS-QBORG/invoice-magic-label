@@ -74,10 +74,35 @@ export function extractVendorName(text: string): string {
     return match[1].trim();
   }
   
-  // Fallback: look for company indicators
-  const lines = text.split(/\n/);
+  // Try alternative patterns for vendor name
+  const vendorPatterns = [
+    /Wystawca:?\s*\n?([^\n]+)/i,
+    /Supplier:?\s*\n?([^\n]+)/i,
+    /Dostawca:?\s*\n?([^\n]+)/i
+  ];
+  
+  for (const pattern of vendorPatterns) {
+    match = text.match(pattern);
+    if (match) {
+      return match[1].trim();
+    }
+  }
+  
+  // Fallback: look for company indicators before "Nabywca" section
+  const nabywcaIndex = text.search(/Nabywca/i);
+  let searchArea = nabywcaIndex >= 0 ? text.slice(0, nabywcaIndex) : text;
+  
+  const lines = searchArea.split(/\n/);
   for (let line of lines) {
-    if (/sp\.?\s*z\s*o\.?o\.?/i.test(line) && !/Nabywca|NIP/i.test(line)) {
+    // Look for company names with common patterns
+    if ((/sp\.?\s*z\s*o\.?o\.?/i.test(line) || 
+         /s\.a\./i.test(line) || 
+         /ltd/i.test(line) ||
+         /sp\.\s*j\./i.test(line) ||
+         /spółka/i.test(line) ||
+         /verizon/i.test(line)) && 
+        !/Nabywca|NIP|ul\.|adres/i.test(line) &&
+        line.trim().length > 5) {
       return line.trim();
     }
   }

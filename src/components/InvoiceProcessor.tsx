@@ -9,7 +9,7 @@ import { FileText, Upload, Download, CheckCircle2, AlertCircle, Loader2 } from '
 import { VendorMappingDialog } from './VendorMappingDialog';
 import { useFirebaseVendors } from '@/hooks/useFirebaseVendors';
 import { useInvoiceCounters } from '@/hooks/useInvoiceCounters';
-import { extractTextFromPdf, extractVendorName, extractBuyerName, extractBuyerNip, extractInvoiceNumber } from '@/utils/pdfProcessor';
+import { extractTextFromPdf, extractVendorName, extractVendorNip, extractBuyerName, extractBuyerNip, extractInvoiceNumber } from '@/utils/pdfProcessor';
 import { detectInvoiceCategory, detectVendorSpecificCategory } from '@/utils/categoryDetector';
 import { InvoiceData } from '@/types/invoice';
 import { useToast } from '@/hooks/use-toast';
@@ -79,12 +79,14 @@ export function InvoiceProcessor() {
       
       // Extract basic invoice data
       const vendorName = extractVendorName(invoiceText);
+      const vendorNip = extractVendorNip(invoiceText);
       const buyerName = extractBuyerName(invoiceText);
       const buyerNip = extractBuyerNip(invoiceText);
       const invoiceNumber = extractInvoiceNumber(invoiceText);
 
       console.log('📄 Extracted invoice data:', {
         vendorName,
+        vendorNip,
         buyerName,
         buyerNip,
         invoiceNumber
@@ -95,7 +97,7 @@ export function InvoiceProcessor() {
       
       if (existingMapping) {
         // We have a mapping - proceed with processing
-        await finishProcessing(vendorName, buyerName, buyerNip, invoiceNumber, existingMapping.mpk, existingMapping.group, existingMapping.category);
+        await finishProcessing(vendorName, vendorNip, buyerName, buyerNip, invoiceNumber, existingMapping.mpk, existingMapping.group, existingMapping.category);
         
         // Update last used timestamp
         await updateVendorLastUsed(vendorName);
@@ -123,7 +125,7 @@ export function InvoiceProcessor() {
             detectedCategory.description
           );
           
-          await finishProcessing(vendorName, buyerName, buyerNip, invoiceNumber, detectedCategory.mpk, detectedCategory.group, detectedCategory.description);
+          await finishProcessing(vendorName, vendorNip, buyerName, buyerNip, invoiceNumber, detectedCategory.mpk, detectedCategory.group, detectedCategory.description);
           
           toast({
             title: "Automatyczne przypisanie",
@@ -136,7 +138,7 @@ export function InvoiceProcessor() {
           
           setCurrentVendor(vendorName);
           setSuggestedMapping(detectedCategory);
-          setPendingInvoiceData({ vendorName, buyerName, buyerNip, invoiceNumber });
+          setPendingInvoiceData({ vendorName, vendorNip, buyerName, buyerNip, invoiceNumber });
           setShowMappingDialog(true);
         }
       }
@@ -158,6 +160,7 @@ export function InvoiceProcessor() {
    */
   const finishProcessing = async (
     vendorName: string,
+    vendorNip: string | undefined,
     buyerName: string, 
     buyerNip: string,
     invoiceNumber: string,
@@ -177,6 +180,7 @@ export function InvoiceProcessor() {
       
       const invoiceData: InvoiceData = {
         vendorName,
+        vendorNip,
         buyerName,
         buyerNip,
         invoiceNumber,
@@ -208,16 +212,20 @@ export function InvoiceProcessor() {
   /**
    * Handle manual vendor mapping from dialog
    */
-  const handleManualMapping = async (mpk: string, group: string, category?: string) => {
+  const handleManualMapping = async (mpk: string, group: string, category?: string, manualVendorName?: string) => {
     if (!pendingInvoiceData) return;
 
     try {
+      // Use manual vendor name if provided, otherwise use current vendor
+      const vendorNameToSave = manualVendorName || currentVendor;
+      
       // Save the mapping for future use
-      await saveVendorMapping(currentVendor, mpk, group, category);
+      await saveVendorMapping(vendorNameToSave, mpk, group, category);
       
       // Complete processing with the assigned values
       await finishProcessing(
-        pendingInvoiceData.vendorName,
+        manualVendorName || pendingInvoiceData.vendorName,
+        pendingInvoiceData.vendorNip,
         pendingInvoiceData.buyerName,
         pendingInvoiceData.buyerNip,
         pendingInvoiceData.invoiceNumber,
@@ -372,9 +380,16 @@ export function InvoiceProcessor() {
                       {invoice.group} – {invoice.mpk} – {invoice.sequentialNumber}
                     </Badge>
                   </div>
-                  <div className="text-xs text-muted-foreground grid grid-cols-2 gap-2">
-                    <span>Nabywca: {invoice.buyerName}</span>
-                    <span>NIP: {invoice.buyerNip}</span>
+                  <div className="text-xs text-muted-foreground space-y-1">
+                    <div className="grid grid-cols-2 gap-2">
+                      <span>Nabywca: {invoice.buyerName}</span>
+                      <span>NIP nabywcy: {invoice.buyerNip}</span>
+                    </div>
+                    {invoice.vendorNip && (
+                      <div>
+                        <span>NIP sprzedawcy: {invoice.vendorNip}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
