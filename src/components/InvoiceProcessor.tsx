@@ -10,8 +10,8 @@ import { VendorMappingDialog } from './VendorMappingDialog';
 import { useFirebaseVendors } from '@/hooks/useFirebaseVendors';
 import { useInvoiceCounters } from '@/hooks/useInvoiceCounters';
 import { extractTextFromPdf, extractVendorName, extractVendorNip, extractBuyerName, extractBuyerNip, extractInvoiceNumber } from '@/utils/pdfProcessor';
-import { detectInvoiceCategory, detectVendorSpecificCategory } from '@/utils/categoryDetector';
-import { InvoiceData } from '@/types/invoice';
+import { detectInvoiceCategory, detectVendorSpecificCategory, type CategoryMatch } from '@/utils/categoryDetector';
+import { InvoiceData, type PendingInvoiceData } from '@/types/invoice';
 import { useToast } from '@/hooks/use-toast';
 
 /**
@@ -24,8 +24,8 @@ export function InvoiceProcessor() {
   const [processedInvoices, setProcessedInvoices] = useState<InvoiceData[]>([]);
   const [showMappingDialog, setShowMappingDialog] = useState(false);
   const [currentVendor, setCurrentVendor] = useState<string>('');
-  const [suggestedMapping, setSuggestedMapping] = useState<any>(null);
-  const [pendingInvoiceData, setPendingInvoiceData] = useState<any>(null);
+  const [suggestedMapping, setSuggestedMapping] = useState<CategoryMatch | null>(null);
+  const [pendingInvoiceData, setPendingInvoiceData] = useState<PendingInvoiceData | null>(null);
 
   const { toast } = useToast();
   const { 
