@@ -140,10 +140,14 @@ export function extractVendorNip(text: string): string | undefined {
     searchArea = text.slice(0, nabywcaIndex);
   }
   
-  const nipRegex = /NIP[:\s]*([0-9]{10})/i;
+  const nipRegex = /NIP[:\s]*([0-9\s-]{10,})/i;
   const match = searchArea.match(nipRegex);
-  
-  return match ? match[1] : undefined;
+
+  if (match) {
+    return match[1].replace(/[^0-9]/g, "");
+  }
+
+  return undefined;
 }
 
 /**
@@ -160,11 +164,11 @@ export function extractBuyerNip(text: string): string {
     searchArea = text.slice(nabywcaIndex);
   }
   
-  const nipRegex = /NIP[:\s]*([0-9]{10})/i;
+  const nipRegex = /NIP[:\s]*([0-9\s-]{10,})/i;
   const match = searchArea.match(nipRegex);
-  
+
   if (match) {
-    return match[1];
+    return match[1].replace(/[^0-9]/g, "");
   }
   
   // Fallback: find any 10-digit number in buyer section
