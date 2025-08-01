@@ -1,0 +1,38 @@
+// Types for invoice analysis system
+
+export interface VendorMapping {
+  name: string;           // Original vendor name
+  mpk: string;           // MPK code (e.g., "MPK610")
+  group: string;         // Group code (e.g., "3/8")
+  category?: string;     // Optional category description
+  createdAt: number;     // Timestamp when added
+  lastUsed: number;      // Last time this mapping was used
+}
+
+export interface InvoiceData {
+  vendorName: string;    // Sprzedawca name
+  vendorNip?: string;    // Sprzedawca NIP
+  buyerName: string;     // Nabywca name  
+  buyerNip: string;      // Nabywca NIP
+  invoiceNumber: string; // Invoice number from document
+  mpk: string;          // Assigned MPK
+  group: string;        // Assigned group
+  sequentialNumber: string; // Generated sequential number
+  label: string;        // Complete label for PDF
+  processedAt: number;  // Timestamp when processed
+  fileName?: string;    // Original file name
+}
+
+export interface InvoiceCounter {
+  lastNumber: number;   // Last used sequential number
+  year: number;        // Current year
+}
+
+export interface ProcessingResult {
+  success: boolean;
+  data?: InvoiceData;
+  needsUserInput?: boolean;
+  suggestedMpk?: string;
+  suggestedGroup?: string;
+  error?: string;
+}
