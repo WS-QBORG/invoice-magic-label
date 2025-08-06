@@ -848,11 +848,16 @@ export function InvoiceProcessor() {
                           </>
                         )}
                       </div>
-                      <div>
-                        <span>Nabywca: {invoice.buyerName}</span>
-                        <br />
-                        <span>NIP nabywcy: {invoice.buyerNip}</span>
-                      </div>
+                       <div>
+                         <span>Nabywca: {
+                           // Display correct buyer name based on NIP
+                           invoice.buyerNip === '8522482321' ? 'TWÓJ INSTALATOR PIOTR MURAWSKI' :
+                           invoice.buyerNip === '8522669232' ? 'QBORG SPÓŁKA' :
+                           invoice.buyerName
+                         }</span>
+                         <br />
+                         <span>NIP nabywcy: {invoice.buyerNip}</span>
+                       </div>
                     </div>
                     {(invoice.issueDate || invoice.dueDate || invoice.paymentMethod) && (
                       <div className="text-xs text-muted-foreground mt-1">
