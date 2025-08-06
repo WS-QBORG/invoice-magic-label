@@ -287,6 +287,10 @@ export function InvoiceProcessor() {
         const firstLetter = vendorName.charAt(0).toUpperCase();
         sequentialNumber = `KJ_${firstLetter}_${String(number).padStart(4, '0')}`;
         label = `${group};${mpk};${sequentialNumber}`;
+      } else if (buyerNip === '8522669232') {
+        const firstLetter = vendorName.charAt(0).toUpperCase();
+        sequentialNumber = `QB_${firstLetter}_${String(number).padStart(4, '0')}`;
+        label = `${group};${mpk};${sequentialNumber}`;
       } else {
         // Standard formatting for other buyers
         sequentialNumber = `${String(number).padStart(3, '0')}/${year}`;
