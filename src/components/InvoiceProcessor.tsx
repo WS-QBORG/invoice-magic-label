@@ -48,6 +48,23 @@ export function InvoiceProcessor() {
     loading: countersLoading 
   } = useInvoiceCounters();
 
+  // Reset counter for specific NIP
+  const handleResetCounter = async () => {
+    try {
+      await resetCounter('8522482321', '', '', 123); // Set to 123 so next invoice will be 0124
+      toast({
+        title: "Licznik zresetowany",
+        description: "Licznik dla NIP 8522482321 został ustawiony na 0124"
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Błąd",
+        description: "Nie udało się zresetować licznika"
+      });
+    }
+  };
+
   const {
     findVendorNameByNip,
     saveVendorNipMapping,
@@ -723,8 +740,8 @@ export function InvoiceProcessor() {
               Przetworzone faktury ({processedInvoices.length})
             </CardTitle>
             <div className="flex gap-2">
-              <Button onClick={resetSpecialCounter} variant="outline" size="sm">
-                Reset KJ licznik
+              <Button onClick={handleResetCounter} variant="outline" size="sm">
+                Reset do 0124
               </Button>
               <Button onClick={exportToExcel} variant="outline">
                 <Download className="h-4 w-4 mr-2" />
