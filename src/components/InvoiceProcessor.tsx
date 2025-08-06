@@ -420,47 +420,89 @@ export function InvoiceProcessor() {
       return;
     }
 
-    // Create CSV content (simplified Excel export)
-    const headers = [
-      'Nazwa kontrahenta',
-      'Nazwa nabywcy', 
-      'NIP nabywcy',
-      'Numer faktury',
-      'Data wystawienia',
-      'Termin płatności',
-      'Sposób płatności',
-      'MPK',
-      'Grupa',
-      'Numer kolejny',
-      'Etykieta',
-      'Data przetworzenia'
-    ];
-    
-    const csvContent = [
-      headers.join(','),
-      ...processedInvoices.map(invoice => [
-        `"${invoice.vendorName}"`,
-        `"${invoice.buyerName}"`,
-        invoice.buyerNip,
-        `"${invoice.invoiceNumber}"`,
-        invoice.issueDate || '',
-        invoice.dueDate || '',
-        invoice.paymentMethod || '',
-        invoice.mpk,
-        invoice.group,
-        invoice.sequentialNumber,
-        `"${invoice.label}"`,
-        new Date(invoice.processedAt).toLocaleDateString('pl-PL')
-      ].join(','))
-    ].join('\n');
+    try {
+      // Import xlsx dynamically for better bundle splitting
+      import('xlsx').then((XLSX) => {
+        // Prepare data for Excel
+        const excelData = processedInvoices.map(invoice => ({
+          'Nazwa sprzedawcy': invoice.vendorName,
+          'NIP sprzedawcy': invoice.vendorNip || '',
+          'Nazwa nabywcy': invoice.buyerName,
+          'NIP nabywcy': invoice.buyerNip,
+          'Numer faktury': invoice.invoiceNumber,
+          'Data wystawienia': invoice.issueDate || '',
+          'Termin płatności': invoice.dueDate || '',
+          'Sposób płatności': invoice.paymentMethod || '',
+          'MPK': invoice.mpk,
+          'Grupa': invoice.group,
+          'Numer kolejny': invoice.sequentialNumber,
+          'Etykieta': invoice.label,
+          'Data przetworzenia': new Date(invoice.processedAt).toLocaleDateString('pl-PL'),
+          'Plik źródłowy': invoice.fileName || ''
+        }));
 
-    // Download CSV file
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `raport_faktury_${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
-    URL.revokeObjectURL(link.href);
+        // Create workbook
+        const workbook = XLSX.utils.book_new();
+        
+        // Create worksheet from data
+        const worksheet = XLSX.utils.json_to_sheet(excelData);
+
+        // Set column widths for better readability
+        const columnWidths = [
+          { wch: 25 }, // Nazwa sprzedawcy
+          { wch: 15 }, // NIP sprzedawcy
+          { wch: 25 }, // Nazwa nabywcy
+          { wch: 15 }, // NIP nabywcy
+          { wch: 20 }, // Numer faktury
+          { wch: 15 }, // Data wystawienia
+          { wch: 15 }, // Termin płatności
+          { wch: 18 }, // Sposób płatności
+          { wch: 10 }, // MPK
+          { wch: 8 },  // Grupa
+          { wch: 15 }, // Numer kolejny
+          { wch: 25 }, // Etykieta
+          { wch: 15 }, // Data przetworzenia
+          { wch: 20 }  // Plik źródłowy
+        ];
+        worksheet['!cols'] = columnWidths;
+
+        // Style header row (make it bold and with background)
+        const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
+        for (let col = range.s.c; col <= range.e.c; col++) {
+          const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
+          if (!worksheet[cellAddress]) continue;
+          
+          worksheet[cellAddress].s = {
+            font: { bold: true },
+            fill: { bgColor: { indexed: 64 }, fgColor: { rgb: "FFFF00" } },
+            alignment: { horizontal: "center" }
+          };
+        }
+
+        // Add worksheet to workbook
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Faktury');
+
+        // Generate filename with current date
+        const today = new Date();
+        const dateStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+        const filename = `Raport_Faktury_${dateStr}.xlsx`;
+
+        // Save file
+        XLSX.writeFile(workbook, filename);
+
+        toast({
+          title: "Eksport zakończony",
+          description: `Zapisano plik: ${filename}`
+        });
+      });
+    } catch (error) {
+      console.error('Export error:', error);
+      toast({
+        variant: "destructive",
+        title: "Błąd eksportu",
+        description: "Nie udało się wyeksportować danych do Excel"
+      });
+    }
   };
 
   const isLoading = processing || vendorsLoading || countersLoading || nipMappingLoading || invoiceStorageLoading;
