@@ -154,7 +154,7 @@ const Index = () => {
         <div className="container mx-auto px-4 py-6">
           <div className="text-center">
             <p className="text-xs text-muted-foreground">
-              © 2025 Analizator Faktur – Inteligentne przetwarzanie dokumentów finansowych
+              © 2025 WS-QBORG
             </p>
           </div>
         </div>
