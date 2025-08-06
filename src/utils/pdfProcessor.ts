@@ -192,22 +192,39 @@ export function extractVendorName(text: string): string {
     }
   }
   
-  // Fallback: look for company indicators before "Nabywca" section
+  // If no explicit pattern found, look for company name in header before "Nabywca"
   const nabywcaIndex = text.search(/Nabywca/i);
-  const searchArea = nabywcaIndex >= 0 ? text.slice(0, nabywcaIndex) : text;
+  const searchArea = nabywcaIndex >= 0 ? text.slice(0, nabywcaIndex) : text.slice(0, Math.min(500, text.length));
   
-  const lines = searchArea.split(/\n/);
-  for (const line of lines) {
-    // Look for company names with common patterns
+  const lines = searchArea.split(/\n/).map(line => line.trim()).filter(line => line.length > 0);
+  
+  // Look for company identifiers (usually appear early in the document)
+  for (let i = 0; i < Math.min(10, lines.length); i++) {
+    const line = lines[i];
+    
+    // Skip lines that are clearly not company names
+    if (/faktura|invoice|data|nr|nip:|ul\.|adres|kod|tel:|email|www\./i.test(line)) {
+      continue;
+    }
+    
+    // Look for company patterns
     if ((/sp\.?\s*z\s*o\.?o\.?/i.test(line) || 
          /s\.a\./i.test(line) || 
          /ltd/i.test(line) ||
          /sp\.\s*j\./i.test(line) ||
          /spółka/i.test(line) ||
-         /verizon/i.test(line)) && 
-        !/Nabywca|NIP|ul\.|adres/i.test(line) &&
-        line.trim().length > 5) {
+         /przedsiębiorstwo/i.test(line) ||
+         /firma/i.test(line)) && 
+        line.length > 5) {
       return line.trim();
+    }
+    
+    // If it's one of the first few lines and contains company-like words, it might be the vendor
+    if (i < 3 && line.length > 10 && /[A-ZĄĆĘŁŃÓŚŹŻ]/i.test(line)) {
+      // Additional check for company indicators
+      if (/ipos|sa\s|sp\.|ltd|gmbh|llc/i.test(line)) {
+        return line.trim();
+      }
     }
   }
   
@@ -220,11 +237,45 @@ export function extractVendorName(text: string): string {
  * @returns Buyer name or "Nie znaleziono"
  */
 export function extractBuyerName(text: string): string {
+  // Look for "Nabywca:" followed by the name
   const nabywcaRegex = /Nabywca:?\s*\n?([^\n]+)/i;
   const match = text.match(nabywcaRegex);
   
   if (match) {
-    return match[1].trim();
+    let buyerName = match[1].trim();
+    
+    // Clean up common prefixes that might be part of vendor name
+    // Remove vendor names that might be included
+    const vendorPrefixes = [
+      /^iPOS\s+SA\s*/i,
+      /^ipos\s*/i,
+      /^firma\s*/i,
+      /^sp\.\s*z\s*o\.o\.?\s*/i,
+      /^s\.a\.\s*/i
+    ];
+    
+    for (const prefix of vendorPrefixes) {
+      buyerName = buyerName.replace(prefix, '').trim();
+    }
+    
+    // If there's still content, return it
+    if (buyerName.length > 0) {
+      return buyerName;
+    }
+  }
+  
+  // Alternative: look for buyer in structured format
+  const buyerPatterns = [
+    /Nabywca\s*[:]\s*([^NIP\n]+?)(?=NIP|$)/i,
+    /Buyer\s*[:]\s*([^NIP\n]+?)(?=NIP|$)/i,
+    /Odbiorca\s*[:]\s*([^NIP\n]+?)(?=NIP|$)/i
+  ];
+  
+  for (const pattern of buyerPatterns) {
+    const altMatch = text.match(pattern);
+    if (altMatch) {
+      return altMatch[1].trim();
+    }
   }
   
   return 'Nie znaleziono';
