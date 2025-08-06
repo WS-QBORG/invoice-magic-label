@@ -30,6 +30,11 @@ export function useBuyerNipMapping() {
       nip: '8522482321',
       namePatterns: ['twój instalator', 'twoj instalator', 'piotr murawski'],
       addressPatterns: ['bohaterów warszawy', 'bohaterow warszawy', 'warszaw']
+    },
+    {
+      nip: '8522669232',
+      namePatterns: ['qborg', 'qborg spółka', 'qborg spolka'],
+      addressPatterns: ['3 maja', '3maja', 'maja 8']
     }
   ];
 
