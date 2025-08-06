@@ -521,10 +521,10 @@ export function InvoiceProcessor() {
   // One-time reset for specific NIP to start from 0125
   const resetSpecialCounter = async () => {
     try {
-      await resetCounter('8522482321', 'MPK510', '1/41', 124);
+      await resetCounter('8522482321', 'MPK510', '1/41', 125);
       toast({
         title: "Licznik zresetowany",
-        description: "Następny numer będzie KJ_I_0125"
+        description: "Następny numer będzie KJ_I_0126"
       });
     } catch (error) {
       toast({
