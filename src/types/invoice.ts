@@ -15,6 +15,7 @@ export interface InvoiceData {
   vendorNip?: string;    // Sprzedawca NIP
   buyerName: string;     // Nabywca name  
   buyerNip: string;      // Nabywca NIP
+  clientNumber?: string; // Optional client number
   invoiceNumber: string; // Invoice number from document
   issueDate?: string;    // Data wystawienia
   dueDate?: string;      // Termin płatności
@@ -39,6 +40,7 @@ export interface PendingInvoiceData {
   vendorNip?: string;
   buyerName: string;
   buyerNip: string;
+  clientNumber?: string;
   invoiceNumber: string;
   issueDate?: string;
   dueDate?: string;

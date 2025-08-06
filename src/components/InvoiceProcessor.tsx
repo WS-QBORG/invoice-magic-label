@@ -35,6 +35,7 @@ export function InvoiceProcessor() {
   const [fileStorage, setFileStorage] = useState<Map<string, File>>(new Map()); // Store original files
   const [resetNip, setResetNip] = useState('');
   const [resetNumber, setResetNumber] = useState('');
+  const [clientNumber, setClientNumber] = useState('');
 
   const { toast } = useToast();
   const { 
@@ -203,7 +204,7 @@ export function InvoiceProcessor() {
       
       if (existingMapping) {
         // We have a mapping - proceed with processing
-          await finishProcessing(vendorName, vendorNip, buyerName, finalBuyerNip, invoiceNumber, existingMapping.mpk, existingMapping.group, existingMapping.category, issueDate, dueDate, paymentMethod);
+          await finishProcessing(vendorName, vendorNip, buyerName, finalBuyerNip, clientNumber, invoiceNumber, existingMapping.mpk, existingMapping.group, existingMapping.category, issueDate, dueDate, paymentMethod);
         
         // Update last used timestamp
         await updateVendorLastUsed(vendorName);
@@ -236,7 +237,7 @@ export function InvoiceProcessor() {
             detectedCategory.description
           );
           
-          await finishProcessing(vendorName, vendorNip, buyerName, finalBuyerNip, invoiceNumber, detectedCategory.mpk, detectedCategory.group, detectedCategory.description, issueDate, dueDate, paymentMethod);
+          await finishProcessing(vendorName, vendorNip, buyerName, finalBuyerNip, clientNumber, invoiceNumber, detectedCategory.mpk, detectedCategory.group, detectedCategory.description, issueDate, dueDate, paymentMethod);
           
           toast({
             title: "Automatyczne przypisanie",
@@ -249,7 +250,7 @@ export function InvoiceProcessor() {
           
           setCurrentVendor(vendorName);
           setSuggestedMapping(detectedCategory);
-          setPendingInvoiceData({ vendorName, vendorNip, buyerName, buyerNip: finalBuyerNip, invoiceNumber, issueDate, dueDate, paymentMethod });
+          setPendingInvoiceData({ vendorName, vendorNip, buyerName, buyerNip: finalBuyerNip, clientNumber, invoiceNumber, issueDate, dueDate, paymentMethod });
           setShowMappingDialog(true);
         }
       }
@@ -274,6 +275,7 @@ export function InvoiceProcessor() {
     vendorNip: string | undefined,
     buyerName: string, 
     buyerNip: string,
+    clientNumber: string,
     invoiceNumber: string,
     mpk: string,
     group: string,
@@ -309,6 +311,7 @@ export function InvoiceProcessor() {
         vendorNip,
         buyerName,
         buyerNip,
+        clientNumber,
         invoiceNumber,
         issueDate,
         dueDate,
@@ -345,8 +348,9 @@ export function InvoiceProcessor() {
           : `Przypisano etykietę: ${group} – ${mpk} – ${sequentialNumber}`
       });
 
-      // Clear selected file
+      // Clear selected file and client number
       setSelectedFile(null);
+      setClientNumber('');
       
     } catch (error) {
       console.error('Error finishing processing:', error);
@@ -383,6 +387,7 @@ export function InvoiceProcessor() {
         pendingInvoiceData.vendorNip,
         pendingInvoiceData.buyerName,
         pendingInvoiceData.buyerNip,
+        pendingInvoiceData.clientNumber || '',
         pendingInvoiceData.invoiceNumber,
         mpk,
         group,
@@ -519,6 +524,7 @@ export function InvoiceProcessor() {
           'NIP sprzedawcy': invoice.vendorNip || '',
           'Nazwa nabywcy': invoice.buyerName,
           'NIP nabywcy': invoice.buyerNip,
+          'Numer klienta': invoice.clientNumber || '',
           'Numer faktury': invoice.invoiceNumber,
           'Data wystawienia': invoice.issueDate || '',
           'Termin płatności': invoice.dueDate || '',
@@ -727,6 +733,18 @@ export function InvoiceProcessor() {
             />
           </div>
           
+          <div className="space-y-2">
+            <Label htmlFor="client-number">Numer klienta (opcjonalnie)</Label>
+            <Input
+              id="client-number"
+              type="text"
+              placeholder="np. KL001, A123..."
+              value={clientNumber}
+              onChange={(e) => setClientNumber(e.target.value)}
+              disabled={isLoading}
+            />
+          </div>
+          
           {selectedFile && (
             <Alert>
               <FileText className="h-4 w-4" />
@@ -858,14 +876,15 @@ export function InvoiceProcessor() {
                          <br />
                          <span>NIP nabywcy: {invoice.buyerNip}</span>
                        </div>
-                    </div>
-                    {(invoice.issueDate || invoice.dueDate || invoice.paymentMethod) && (
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {invoice.issueDate && <span>Data wystawienia: {invoice.issueDate} </span>}
-                        {invoice.dueDate && <span>Termin płatności: {invoice.dueDate} </span>}
-                        {invoice.paymentMethod && <span>Płatność: {invoice.paymentMethod}</span>}
-                      </div>
-                    )}
+                     </div>
+                     {(invoice.clientNumber || invoice.issueDate || invoice.dueDate || invoice.paymentMethod) && (
+                       <div className="text-xs text-muted-foreground mt-1">
+                         {invoice.clientNumber && <span>Numer klienta: {invoice.clientNumber} </span>}
+                         {invoice.issueDate && <span>Data wystawienia: {invoice.issueDate} </span>}
+                         {invoice.dueDate && <span>Termin płatności: {invoice.dueDate} </span>}
+                         {invoice.paymentMethod && <span>Płatność: {invoice.paymentMethod}</span>}
+                       </div>
+                     )}
                   </div>
                 </div>
               ))}
