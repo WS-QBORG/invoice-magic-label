@@ -196,10 +196,10 @@ export function extractVendorName(text: string): string {
   const nabywcaIndex = text.search(/Nabywca/i);
   const searchArea = nabywcaIndex >= 0 ? text.slice(0, nabywcaIndex) : text.slice(0, Math.min(500, text.length));
   
-  const lines = searchArea.split(/\n/).map(line => line.trim()).filter(line => line.length > 2);
+  const lines = searchArea.split(/\n/).map(line => line.trim()).filter(line => line.length > 1);
   
   // Look for company identifiers in the first part of the document
-  for (let i = 0; i < Math.min(8, lines.length); i++) {
+  for (let i = 0; i < Math.min(10, lines.length); i++) {
     const line = lines[i];
     
     // Skip obviously non-company lines
@@ -208,7 +208,7 @@ export function extractVendorName(text: string): string {
     }
     
     // Look for company patterns or just substantial text that could be a company name
-    if (line.length > 5 && (
+    if (line.length > 2 && (
          /sp\.?\s*z\s*o\.?o\.?/i.test(line) || 
          /s\.a\./i.test(line) || 
          /ltd/i.test(line) ||
@@ -216,9 +216,18 @@ export function extractVendorName(text: string): string {
          /spółka/i.test(line) ||
          /przedsiębiorstwo/i.test(line) ||
          /ipos/i.test(line) ||
-         (i < 3 && /[A-ZĄĆĘŁŃÓŚŹŻ]/.test(line) && line.length > 8) // Company name in header
+         /^[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż\s]{2,}$/i.test(line) || // Polish company name pattern
+         (i < 5 && /[A-ZĄĆĘŁŃÓŚŹŻ]/.test(line) && line.length > 2) // Company name in header
        )) {
       return line.trim();
+    }
+  }
+  
+  // If still nothing found, try to get any meaningful text from the very beginning
+  if (lines.length > 0) {
+    const firstLine = lines[0];
+    if (firstLine.length > 2 && !/^\d/.test(firstLine)) {
+      return firstLine.trim();
     }
   }
   
