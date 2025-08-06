@@ -16,12 +16,14 @@ export function useInvoiceCounters() {
    * @param buyerNip - NIP of the buyer (nabywca)
    * @param mpk - MPK code
    * @param group - Group code
+   * @param vendorName - Name of the vendor (for special formatting)
    * @returns Promise with next number and year
    */
   const getNextSequentialNumber = async (
     buyerNip: string,
     mpk: string,
-    group: string
+    group: string,
+    vendorName?: string
   ): Promise<{ number: number; year: number }> => {
     try {
       setLoading(true);

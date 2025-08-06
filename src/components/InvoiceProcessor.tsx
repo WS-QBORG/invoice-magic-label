@@ -213,13 +213,21 @@ export function InvoiceProcessor() {
   ) => {
     try {
       // Generate sequential number for this buyer NIP + MPK + Group combination
-      const { number, year } = await getNextSequentialNumber(buyerNip, mpk, group);
+      const { number, year } = await getNextSequentialNumber(buyerNip, mpk, group, vendorName);
       
-      // Format sequential number with leading zeros
-      const sequentialNumber = `${String(number).padStart(3, '0')}/${year}`;
+      // Special formatting for buyer NIP 8522482321
+      let sequentialNumber: string;
+      let label: string;
       
-      // Create complete label
-      const label = `${group};${mpk};${sequentialNumber}`;
+      if (buyerNip === '8522482321') {
+        const firstLetter = vendorName.charAt(0).toUpperCase();
+        sequentialNumber = `KJ_${firstLetter}_${String(number).padStart(4, '0')}`;
+        label = `${group};${mpk};${sequentialNumber}`;
+      } else {
+        // Standard formatting for other buyers
+        sequentialNumber = `${String(number).padStart(3, '0')}/${year}`;
+        label = `${group};${mpk};${sequentialNumber}`;
+      }
       
       const invoiceData: InvoiceData = {
         vendorName,
@@ -252,7 +260,9 @@ export function InvoiceProcessor() {
       
       toast({
         title: "Faktura przetworzona i zapisana",
-        description: `Przypisano etykietę: ${group} – ${mpk} – ${sequentialNumber}`
+        description: buyerNip === '8522482321' 
+          ? `Przypisano etykietę: ${group} – ${mpk} – ${sequentialNumber}`
+          : `Przypisano etykietę: ${group} – ${mpk} – ${sequentialNumber}`
       });
 
       // Clear selected file
