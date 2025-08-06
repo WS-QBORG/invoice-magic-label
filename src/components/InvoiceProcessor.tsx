@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { FileText, Upload, Download, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { VendorMappingDialog } from './VendorMappingDialog';
 import { useFirebaseVendors } from '@/hooks/useFirebaseVendors';
+import { useVendorNipMapping } from '@/hooks/useVendorNipMapping';
 import { useInvoiceCounters } from '@/hooks/useInvoiceCounters';
 import { extractTextFromPdf, extractVendorName, extractVendorNip, extractBuyerName, extractBuyerNip, extractInvoiceNumber } from '@/utils/pdfProcessor';
 import { detectInvoiceCategory, detectVendorSpecificCategory, type CategoryMatch } from '@/utils/categoryDetector';
@@ -39,6 +40,13 @@ export function InvoiceProcessor() {
     getNextSequentialNumber, 
     loading: countersLoading 
   } = useInvoiceCounters();
+
+  const {
+    findVendorNameByNip,
+    saveVendorNipMapping,
+    checkVendorNameUpdate,
+    loading: nipMappingLoading
+  } = useVendorNipMapping();
 
   /**
    * Handle file selection
@@ -79,7 +87,7 @@ export function InvoiceProcessor() {
       const invoiceText = await extractTextFromPdf(selectedFile);
       
       // Extract basic invoice data
-      const vendorName = extractVendorName(invoiceText);
+      let vendorName = extractVendorName(invoiceText);
       const vendorNip = extractVendorNip(invoiceText);
       const buyerName = extractBuyerName(invoiceText);
       const buyerNip = extractBuyerNip(invoiceText);
@@ -92,6 +100,19 @@ export function InvoiceProcessor() {
         buyerNip,
         invoiceNumber
       });
+
+      // Check vendor name against NIP mapping
+      const vendorNameCheck = checkVendorNameUpdate(vendorName, vendorNip);
+      
+      if (vendorNameCheck.shouldUpdate) {
+        console.log('🔄 Using saved vendor name for NIP:', vendorNip, '→', vendorNameCheck.suggestedName);
+        vendorName = vendorNameCheck.suggestedName;
+        
+        toast({
+          title: "Użyto zapisanej nazwy sprzedawcy",
+          description: `Dla NIP ${vendorNip}: ${vendorNameCheck.suggestedName}`
+        });
+      }
 
       // Check if we have a mapping for this vendor
       const existingMapping = findVendorMapping(vendorName);
@@ -223,6 +244,16 @@ export function InvoiceProcessor() {
       // Save the mapping for future use
       await saveVendorMapping(vendorNameToSave, mpk, group, category);
       
+      // Save NIP → vendor name mapping if we have a vendor NIP
+      if (pendingInvoiceData.vendorNip && manualVendorName) {
+        await saveVendorNipMapping(pendingInvoiceData.vendorNip, manualVendorName);
+        
+        toast({
+          title: "Zapisano mapowanie NIP",
+          description: `NIP ${pendingInvoiceData.vendorNip} → ${manualVendorName}`
+        });
+      }
+      
       // Complete processing with the assigned values
       await finishProcessing(
         manualVendorName || pendingInvoiceData.vendorName,
@@ -300,7 +331,7 @@ export function InvoiceProcessor() {
     URL.revokeObjectURL(link.href);
   };
 
-  const isLoading = processing || vendorsLoading || countersLoading;
+  const isLoading = processing || vendorsLoading || countersLoading || nipMappingLoading;
 
   return (
     <div className="space-y-6">
