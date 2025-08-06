@@ -383,14 +383,21 @@ export function InvoiceProcessor() {
                   </div>
                   <div className="text-xs text-muted-foreground space-y-1">
                     <div className="grid grid-cols-2 gap-2">
-                      <span>Nabywca: {invoice.buyerName}</span>
-                      <span>NIP nabywcy: {invoice.buyerNip}</span>
-                    </div>
-                    {invoice.vendorNip && (
                       <div>
-                        <span>NIP sprzedawcy: {invoice.vendorNip}</span>
+                        <span>Sprzedawca: {invoice.vendorName}</span>
+                        {invoice.vendorNip && (
+                          <>
+                            <br />
+                            <span>NIP sprzedawcy: {invoice.vendorNip}</span>
+                          </>
+                        )}
                       </div>
-                    )}
+                      <div>
+                        <span>Nabywca: {invoice.buyerName}</span>
+                        <br />
+                        <span>NIP nabywcy: {invoice.buyerNip}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))}
