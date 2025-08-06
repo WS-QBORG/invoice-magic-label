@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { FileText, Upload, Download, CheckCircle2, AlertCircle, Loader2, Edit2, Trash2 } from 'lucide-react';
+import { FileText, Upload, Download, CheckCircle2, AlertCircle, Loader2, Edit2, Trash2, FileImage } from 'lucide-react';
 import { EditInvoiceDialog } from './EditInvoiceDialog';
 import { VendorMappingDialog } from './VendorMappingDialog';
 import { useFirebaseVendors } from '@/hooks/useFirebaseVendors';
@@ -535,6 +535,99 @@ export function InvoiceProcessor() {
     }
   };
 
+  /**
+   * Add label to PDF and download annotated version
+   */
+  const downloadAnnotatedInvoice = async (invoice: InvoiceData) => {
+    if (!selectedFile && invoice.fileName) {
+      toast({
+        variant: "destructive",
+        title: "Plik niedostępny",
+        description: "Oryginalny plik PDF nie jest dostępny do opisania"
+      });
+      return;
+    }
+
+    try {
+      // Import pdf-lib dynamically
+      const { PDFDocument, rgb, StandardFonts } = await import('pdf-lib');
+      
+      let pdfToAnnotate: File | undefined;
+      
+      // Use selectedFile if it matches the invoice, otherwise ask user to select
+      if (selectedFile && selectedFile.name === invoice.fileName) {
+        pdfToAnnotate = selectedFile;
+      } else {
+        toast({
+          title: "Wybierz plik PDF",
+          description: "Proszę ponownie wybrać oryginalny plik PDF tej faktury"
+        });
+        return;
+      }
+
+      if (!pdfToAnnotate) return;
+
+      const arrayBuffer = await pdfToAnnotate.arrayBuffer();
+      const pdfDoc = await PDFDocument.load(arrayBuffer);
+      
+      // Get the first page
+      const pages = pdfDoc.getPages();
+      const firstPage = pages[0];
+      const { width, height } = firstPage.getSize();
+      
+      // Embed font
+      const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+      
+      // Prepare label text
+      const labelText = `${invoice.group} – ${invoice.mpk} – ${invoice.sequentialNumber}`;
+      
+      // Add label to top right corner
+      firstPage.drawText(labelText, {
+        x: width - 200,
+        y: height - 30,
+        size: 12,
+        font: font,
+        color: rgb(0.8, 0, 0), // Red color
+      });
+      
+      // Add label to bottom right corner as backup
+      firstPage.drawText(labelText, {
+        x: width - 200,
+        y: 30,
+        size: 10,
+        font: font,
+        color: rgb(0.8, 0, 0), // Red color
+      });
+      
+      // Save the PDF
+      const pdfBytes = await pdfDoc.save();
+      
+      // Create download link
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${invoice.fileName?.replace('.pdf', '')}_opisana.pdf` || `faktura_${invoice.sequentialNumber}_opisana.pdf`;
+      link.click();
+      
+      // Clean up
+      URL.revokeObjectURL(url);
+      
+      toast({
+        title: "Faktura opisana",
+        description: `Pobrano plik z etykietą: ${labelText}`
+      });
+      
+    } catch (error) {
+      console.error('Error annotating PDF:', error);
+      toast({
+        variant: "destructive",
+        title: "Błąd opisywania",
+        description: "Nie udało się opisać faktury"
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* File Upload Section */}
@@ -619,6 +712,14 @@ export function InvoiceProcessor() {
                       <Badge variant="secondary">
                         {invoice.group} – {invoice.mpk} – {invoice.sequentialNumber}
                       </Badge>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => downloadAnnotatedInvoice(invoice)}
+                        title="Pobierz fakturę z etykietą"
+                      >
+                        <FileImage className="h-4 w-4" />
+                      </Button>
                       <Button
                         variant="outline"
                         size="sm"
