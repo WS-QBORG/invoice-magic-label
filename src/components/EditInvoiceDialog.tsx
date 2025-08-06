@@ -33,7 +33,9 @@ export function EditInvoiceDialog({ isOpen, onClose, onSave, invoice }: EditInvo
     setSaving(true);
     try {
       // Update label when MPK or Group changes
-      const updatedLabel = `${editedInvoice.group};${editedInvoice.mpk};${editedInvoice.sequentialNumber}`;
+      const updatedLabel = editedInvoice.clientNumber 
+        ? `${editedInvoice.group};${editedInvoice.mpk};${editedInvoice.sequentialNumber};${editedInvoice.clientNumber}`
+        : `${editedInvoice.group};${editedInvoice.mpk};${editedInvoice.sequentialNumber}`;
       const finalInvoice = {
         ...editedInvoice,
         label: updatedLabel,
