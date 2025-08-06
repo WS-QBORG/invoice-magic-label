@@ -5,10 +5,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { FileText, Upload, Download, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { FileText, Upload, Download, CheckCircle2, AlertCircle, Loader2, Edit2, Trash2 } from 'lucide-react';
+import { EditInvoiceDialog } from './EditInvoiceDialog';
 import { VendorMappingDialog } from './VendorMappingDialog';
 import { useFirebaseVendors } from '@/hooks/useFirebaseVendors';
 import { useVendorNipMapping } from '@/hooks/useVendorNipMapping';
+import { useInvoiceStorage } from '@/hooks/useInvoiceStorage';
 import { useInvoiceCounters } from '@/hooks/useInvoiceCounters';
 import { extractTextFromPdf, extractVendorName, extractVendorNip, extractBuyerName, extractBuyerNip, extractInvoiceNumber } from '@/utils/pdfProcessor';
 import { detectInvoiceCategory, detectVendorSpecificCategory, type CategoryMatch } from '@/utils/categoryDetector';
@@ -27,6 +29,8 @@ export function InvoiceProcessor() {
   const [currentVendor, setCurrentVendor] = useState<string>('');
   const [suggestedMapping, setSuggestedMapping] = useState<CategoryMatch | null>(null);
   const [pendingInvoiceData, setPendingInvoiceData] = useState<PendingInvoiceData | null>(null);
+  const [editingInvoice, setEditingInvoice] = useState<InvoiceData | null>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
 
   const { toast } = useToast();
   const { 
@@ -47,6 +51,14 @@ export function InvoiceProcessor() {
     checkVendorNameUpdate,
     loading: nipMappingLoading
   } = useVendorNipMapping();
+
+  const {
+    savedInvoices,
+    saveInvoice,
+    updateInvoice,
+    deleteInvoice,
+    loading: invoiceStorageLoading
+  } = useInvoiceStorage();
 
   /**
    * Handle file selection
@@ -214,11 +226,14 @@ export function InvoiceProcessor() {
         fileName: selectedFile?.name
       };
 
-      // Add to processed invoices list
+      // Save to Firebase
+      await saveInvoice(invoiceData);
+
+      // Add to processed invoices list (will be updated via useInvoiceStorage)
       setProcessedInvoices(prev => [invoiceData, ...prev]);
       
       toast({
-        title: "Faktura przetworzona",
+        title: "Faktura przetworzona i zapisana",
         description: `Przypisano etykietę: ${group} – ${mpk} – ${sequentialNumber}`
       });
 
@@ -282,6 +297,78 @@ export function InvoiceProcessor() {
   };
 
   /**
+   * Handle editing an invoice
+   */
+  const handleEditInvoice = (invoice: InvoiceData) => {
+    setEditingInvoice(invoice);
+    setShowEditDialog(true);
+  };
+
+  /**
+   * Handle saving edited invoice
+   */
+  const handleSaveEditedInvoice = async (updatedInvoice: InvoiceData) => {
+    if (!updatedInvoice.id) {
+      toast({
+        variant: "destructive",
+        title: "Błąd",
+        description: "Nie można edytować faktury bez ID"
+      });
+      return;
+    }
+
+    try {
+      await updateInvoice(updatedInvoice.id, updatedInvoice);
+      
+      // Update local state
+      setProcessedInvoices(prev => 
+        prev.map(invoice => 
+          invoice.id === updatedInvoice.id ? updatedInvoice : invoice
+        )
+      );
+
+      toast({
+        title: "Faktura zaktualizowana",
+        description: "Zmiany zostały zapisane w bazie danych"
+      });
+
+      setShowEditDialog(false);
+      setEditingInvoice(null);
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Błąd aktualizacji",
+        description: "Nie udało się zapisać zmian"
+      });
+    }
+  };
+
+  /**
+   * Handle deleting an invoice
+   */
+  const handleDeleteInvoice = async (invoice: InvoiceData) => {
+    if (!invoice.id) return;
+
+    try {
+      await deleteInvoice(invoice.id);
+      
+      // Update local state
+      setProcessedInvoices(prev => prev.filter(inv => inv.id !== invoice.id));
+
+      toast({
+        title: "Faktura usunięta",
+        description: "Faktura została usunięta z bazy danych"
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Błąd usuwania",
+        description: "Nie udało się usunąć faktury"
+      });
+    }
+  };
+
+  /**
    * Export processed invoices to Excel
    */
   const exportToExcel = () => {
@@ -331,7 +418,7 @@ export function InvoiceProcessor() {
     URL.revokeObjectURL(link.href);
   };
 
-  const isLoading = processing || vendorsLoading || countersLoading || nipMappingLoading;
+  const isLoading = processing || vendorsLoading || countersLoading || nipMappingLoading || invoiceStorageLoading;
 
   return (
     <div className="space-y-6">
@@ -408,9 +495,27 @@ export function InvoiceProcessor() {
                         Faktura: {invoice.invoiceNumber}
                       </p>
                     </div>
-                    <Badge variant="secondary">
-                      {invoice.group} – {invoice.mpk} – {invoice.sequentialNumber}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary">
+                        {invoice.group} – {invoice.mpk} – {invoice.sequentialNumber}
+                      </Badge>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEditInvoice(invoice)}
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+                      {invoice.id && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeleteInvoice(invoice)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
                   <div className="text-xs text-muted-foreground space-y-1">
                     <div className="grid grid-cols-2 gap-2">
@@ -447,6 +552,17 @@ export function InvoiceProcessor() {
         suggestedGroup={suggestedMapping?.group}
         suggestedCategory={suggestedMapping?.description}
         confidence={suggestedMapping?.confidence}
+      />
+
+      {/* Edit Invoice Dialog */}
+      <EditInvoiceDialog
+        isOpen={showEditDialog}
+        onClose={() => {
+          setShowEditDialog(false);
+          setEditingInvoice(null);
+        }}
+        onSave={handleSaveEditedInvoice}
+        invoice={editingInvoice}
       />
     </div>
   );

@@ -1,0 +1,193 @@
+import { useState, useEffect } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Edit2, Save, X } from 'lucide-react';
+import { InvoiceData } from '@/types/invoice';
+import { MPK_OPTIONS, GROUP_OPTIONS, type MPKOption, type GroupOption } from '@/utils/mpkGroups';
+
+interface EditInvoiceDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (updatedInvoice: InvoiceData) => void;
+  invoice: InvoiceData | null;
+}
+
+export function EditInvoiceDialog({ isOpen, onClose, onSave, invoice }: EditInvoiceDialogProps) {
+  const [editedInvoice, setEditedInvoice] = useState<InvoiceData | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  // Initialize form with invoice data when dialog opens
+  useEffect(() => {
+    if (invoice && isOpen) {
+      setEditedInvoice({ ...invoice });
+    }
+  }, [invoice, isOpen]);
+
+  const handleSave = async () => {
+    if (!editedInvoice) return;
+    
+    setSaving(true);
+    try {
+      // Update label when MPK or Group changes
+      const updatedLabel = `${editedInvoice.group};${editedInvoice.mpk};${editedInvoice.sequentialNumber}`;
+      const finalInvoice = {
+        ...editedInvoice,
+        label: updatedLabel,
+        lastModified: Date.now()
+      };
+      
+      await onSave(finalInvoice);
+      onClose();
+    } catch (error) {
+      console.error('Error saving invoice:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleFieldChange = (field: keyof InvoiceData, value: string) => {
+    if (!editedInvoice) return;
+    
+    setEditedInvoice(prev => prev ? {
+      ...prev,
+      [field]: value
+    } : null);
+  };
+
+  const handleGroupChange = (newGroup: string) => {
+    if (!editedInvoice) return;
+    
+    setEditedInvoice(prev => prev ? {
+      ...prev,
+      group: newGroup
+    } : null);
+  };
+
+  if (!editedInvoice) return null;
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Edit2 className="h-5 w-5" />
+            Edytuj fakturę
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {/* Vendor Information */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="vendorName">Nazwa sprzedawcy</Label>
+              <Input
+                id="vendorName"
+                value={editedInvoice.vendorName}
+                onChange={(e) => handleFieldChange('vendorName', e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="vendorNip">NIP sprzedawcy</Label>
+              <Input
+                id="vendorNip"
+                value={editedInvoice.vendorNip || ''}
+                onChange={(e) => handleFieldChange('vendorNip', e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* Buyer Information */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="buyerName">Nazwa nabywcy</Label>
+              <Input
+                id="buyerName"
+                value={editedInvoice.buyerName}
+                onChange={(e) => handleFieldChange('buyerName', e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="buyerNip">NIP nabywcy</Label>
+              <Input
+                id="buyerNip"
+                value={editedInvoice.buyerNip}
+                onChange={(e) => handleFieldChange('buyerNip', e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* Invoice Information */}
+          <div className="space-y-2">
+            <Label htmlFor="invoiceNumber">Numer faktury</Label>
+            <Input
+              id="invoiceNumber"
+              value={editedInvoice.invoiceNumber}
+              onChange={(e) => handleFieldChange('invoiceNumber', e.target.value)}
+            />
+          </div>
+
+          {/* MPK and Group Selection */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Grupa</Label>
+              <Select value={editedInvoice.group} onValueChange={handleGroupChange}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Wybierz grupę" />
+                </SelectTrigger>
+                <SelectContent>
+                  {GROUP_OPTIONS.map((group) => (
+                    <SelectItem key={group.code} value={group.code}>
+                      {group.code} - {group.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>MPK</Label>
+              <Select 
+                value={editedInvoice.mpk} 
+                onValueChange={(value) => handleFieldChange('mpk', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Wybierz MPK" />
+                </SelectTrigger>
+                <SelectContent>
+                  {MPK_OPTIONS.map((mpk) => (
+                    <SelectItem key={mpk.code} value={mpk.code}>
+                      {mpk.code} - {mpk.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Current Label Preview */}
+          <div className="space-y-2">
+            <Label>Podgląd etykiety</Label>
+            <Badge variant="outline" className="text-sm">
+              {editedInvoice.group} – {editedInvoice.mpk} – {editedInvoice.sequentialNumber}
+            </Badge>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={saving}>
+            <X className="h-4 w-4 mr-2" />
+            Anuluj
+          </Button>
+          <Button onClick={handleSave} disabled={saving}>
+            <Save className="h-4 w-4 mr-2" />
+            {saving ? 'Zapisywanie...' : 'Zapisz zmiany'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

@@ -10,6 +10,7 @@ export interface VendorMapping {
 }
 
 export interface InvoiceData {
+  id?: string;          // Firebase ID for saved invoices
   vendorName: string;    // Sprzedawca name
   vendorNip?: string;    // Sprzedawca NIP
   buyerName: string;     // Nabywca name  
@@ -20,6 +21,8 @@ export interface InvoiceData {
   sequentialNumber: string; // Generated sequential number
   label: string;        // Complete label for PDF
   processedAt: number;  // Timestamp when processed
+  savedAt?: number;     // Timestamp when saved to Firebase
+  lastModified?: number; // Timestamp when last modified
   fileName?: string;    // Original file name
 }
 
