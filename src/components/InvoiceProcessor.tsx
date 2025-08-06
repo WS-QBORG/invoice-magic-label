@@ -31,6 +31,7 @@ export function InvoiceProcessor() {
   const [pendingInvoiceData, setPendingInvoiceData] = useState<PendingInvoiceData | null>(null);
   const [editingInvoice, setEditingInvoice] = useState<InvoiceData | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [fileStorage, setFileStorage] = useState<Map<string, File>>(new Map()); // Store original files
 
   const { toast } = useToast();
   const { 
@@ -246,6 +247,11 @@ export function InvoiceProcessor() {
         processedAt: Date.now(),
         fileName: selectedFile?.name
       };
+
+      // Store the file for later use
+      if (selectedFile && invoiceData.fileName) {
+        setFileStorage(prev => new Map(prev.set(invoiceData.fileName!, selectedFile)));
+      }
 
       // Save to Firebase and get the ID
       const savedInvoiceId = await saveInvoice(invoiceData);
@@ -539,28 +545,26 @@ export function InvoiceProcessor() {
    * Add label to PDF and download annotated version
    */
   const downloadAnnotatedInvoice = async (invoice: InvoiceData) => {
-    if (!selectedFile && invoice.fileName) {
-      toast({
-        variant: "destructive",
-        title: "Plik niedostępny",
-        description: "Oryginalny plik PDF nie jest dostępny do opisania"
-      });
-      return;
-    }
-
     try {
       // Import pdf-lib dynamically
       const { PDFDocument, rgb, StandardFonts } = await import('pdf-lib');
       
       let pdfToAnnotate: File | undefined;
       
-      // Use selectedFile if it matches the invoice, otherwise ask user to select
-      if (selectedFile && selectedFile.name === invoice.fileName) {
+      // First try to get file from storage
+      if (invoice.fileName && fileStorage.has(invoice.fileName)) {
+        pdfToAnnotate = fileStorage.get(invoice.fileName);
+      } 
+      // Then check if selectedFile matches
+      else if (selectedFile && selectedFile.name === invoice.fileName) {
         pdfToAnnotate = selectedFile;
-      } else {
+      } 
+      // If no file available, show message
+      else {
         toast({
-          title: "Wybierz plik PDF",
-          description: "Proszę ponownie wybrać oryginalny plik PDF tej faktury"
+          variant: "destructive",
+          title: "Plik niedostępny",
+          description: "Aby pobrać opisaną fakturę, proszę ponownie wybrać oryginalny plik PDF"
         });
         return;
       }
