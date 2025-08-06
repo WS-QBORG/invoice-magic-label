@@ -29,8 +29,10 @@ export function useInvoiceCounters() {
       setLoading(true);
       const currentYear = new Date().getFullYear();
       
-      // Create unique key for this buyer NIP + MPK + Group combination
-      const counterKey = `${mpk}_${group}`.replace(/[^a-zA-Z0-9_]/g, '_');
+      // Create unique key for this buyer NIP + MPK + Group combination (without letter)
+      // Remove letter from group (e.g., "3/8" from "KJ_A_0125" or "KJ_I_0126")
+      const groupWithoutLetter = group.replace(/_[A-Z]_/, '_').replace(/^[A-Z]+_/, '');
+      const counterKey = `${mpk}_${groupWithoutLetter}`.replace(/[^a-zA-Z0-9_]/g, '_');
       const counterRef = ref(database, `counters/${buyerNip}/${counterKey}`);
       
       const snapshot = await get(counterRef);
@@ -87,7 +89,8 @@ export function useInvoiceCounters() {
     group: string
   ): Promise<InvoiceCounter | null> => {
     try {
-      const counterKey = `${mpk}_${group}`.replace(/[^a-zA-Z0-9_]/g, '_');
+      const groupWithoutLetter = group.replace(/_[A-Z]_/, '_').replace(/^[A-Z]+_/, '');
+      const counterKey = `${mpk}_${groupWithoutLetter}`.replace(/[^a-zA-Z0-9_]/g, '_');
       const counterRef = ref(database, `counters/${buyerNip}/${counterKey}`);
       
       const snapshot = await get(counterRef);
@@ -115,7 +118,8 @@ export function useInvoiceCounters() {
       setLoading(true);
       const currentYear = new Date().getFullYear();
       
-      const counterKey = `${mpk}_${group}`.replace(/[^a-zA-Z0-9_]/g, '_');
+      const groupWithoutLetter = group.replace(/_[A-Z]_/, '_').replace(/^[A-Z]+_/, '');
+      const counterKey = `${mpk}_${groupWithoutLetter}`.replace(/[^a-zA-Z0-9_]/g, '_');
       const counterRef = ref(database, `counters/${buyerNip}/${counterKey}`);
       
       const newCounter: InvoiceCounter = {
