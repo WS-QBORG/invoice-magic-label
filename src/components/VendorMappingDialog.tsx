@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { getAvailableCategories } from '@/utils/categoryDetector';
+import { getAllMPKOptions, getAllGroupOptions } from '@/utils/mpkGroups';
 import { useToast } from '@/hooks/use-toast';
 
 interface VendorMappingDialogProps {
@@ -39,10 +39,11 @@ export function VendorMappingDialog({
   const [group, setGroup] = useState('');
   const [category, setCategory] = useState('');
   const [editableVendorName, setEditableVendorName] = useState('');
-  const [selectedPreset, setSelectedPreset] = useState<string>('');
+  
 
   const { toast } = useToast();
-  const categories = getAvailableCategories();
+  const mpkOptions = getAllMPKOptions();
+  const groupOptions = getAllGroupOptions();
 
   // Reset form when dialog opens
   useEffect(() => {
@@ -51,18 +52,19 @@ export function VendorMappingDialog({
       setGroup(suggestedGroup || '');
       setCategory(suggestedCategory || '');
       setEditableVendorName(vendorName || '');
-      setSelectedPreset('');
     }
   }, [isOpen, suggestedMpk, suggestedGroup, suggestedCategory, vendorName]);
 
-  const handlePresetSelect = (categoryId: string) => {
-    const category = categories.find(c => c.id === categoryId);
-    if (category) {
-      setMpk(category.mpk);
-      setGroup(category.group);
-      setSelectedPreset(categoryId);
-      setCategory(category.name);
+  const handleMpkSelect = (mpkCode: string) => {
+    setMpk(mpkCode);
+    const mpkOption = mpkOptions.find(m => m.code === mpkCode);
+    if (mpkOption) {
+      setCategory(mpkOption.description);
     }
+  };
+
+  const handleGroupSelect = (groupCode: string) => {
+    setGroup(groupCode);
   };
 
   const handleSave = () => {
@@ -85,7 +87,7 @@ export function VendorMappingDialog({
     setGroup(suggestedGroup || '');
     setCategory(suggestedCategory || '');
     setEditableVendorName(vendorName || '');
-    setSelectedPreset('');
+    
     onClose();
   };
 
@@ -143,48 +145,70 @@ export function VendorMappingDialog({
             </Card>
           )}
 
-          {/* Quick presets */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium">Wybierz kategorię</Label>
-            <div className="grid grid-cols-2 gap-2">
-              {categories.map((categoryOption) => (
-                <Button
-                  key={categoryOption.id}
-                  variant={selectedPreset === categoryOption.id ? "default" : "outline"}
-                  className="justify-start text-left h-auto p-3"
-                  onClick={() => handlePresetSelect(categoryOption.id)}
-                >
-                  <div className="space-y-1">
-                    <div className="font-medium">{categoryOption.name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {categoryOption.mpk} • {categoryOption.group}
-                    </div>
-                  </div>
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          {/* Manual input */}
+          {/* MPK and Group Selection */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="mpk">MPK *</Label>
-              <Input
-                id="mpk"
-                value={mpk}
-                onChange={(e) => setMpk(e.target.value)}
-                placeholder="np. MPK610"
-              />
+              <Label htmlFor="mpk-select">Wybierz MPK *</Label>
+              <Select value={mpk} onValueChange={handleMpkSelect}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Wybierz MPK..." />
+                </SelectTrigger>
+                <SelectContent className="max-h-[200px]">
+                  {mpkOptions.map((option) => (
+                    <SelectItem key={option.code} value={option.code}>
+                      <div className="flex flex-col">
+                        <span className="font-medium">{option.code}</span>
+                        <span className="text-xs text-muted-foreground">{option.name}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="group">Grupa *</Label>
-              <Input
-                id="group"
-                value={group}
-                onChange={(e) => setGroup(e.target.value)}
-                placeholder="np. 3/8"
-              />
+              <Label htmlFor="group-select">Wybierz Grupę *</Label>
+              <Select value={group} onValueChange={handleGroupSelect}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Wybierz grupę..." />
+                </SelectTrigger>
+                <SelectContent className="max-h-[200px]">
+                  {groupOptions.map((option) => (
+                    <SelectItem key={option.code} value={option.code}>
+                      <div className="flex flex-col">
+                        <span className="font-medium">{option.code}</span>
+                        <span className="text-xs text-muted-foreground">{option.name}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Manual input option */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Lub wprowadź ręcznie</Label>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="mpk">MPK *</Label>
+                <Input
+                  id="mpk"
+                  value={mpk}
+                  onChange={(e) => setMpk(e.target.value)}
+                  placeholder="np. MPK610"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="group">Grupa *</Label>
+                <Input
+                  id="group"
+                  value={group}
+                  onChange={(e) => setGroup(e.target.value)}
+                  placeholder="np. 3/8"
+                />
+              </div>
             </div>
           </div>
 
