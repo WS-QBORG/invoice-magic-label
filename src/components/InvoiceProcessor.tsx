@@ -324,6 +324,24 @@ export function InvoiceProcessor() {
     }
 
     try {
+      // Find original invoice to compare changes
+      const originalInvoice = processedInvoices.find(inv => inv.id === updatedInvoice.id);
+      
+      // Check if vendor name was changed and we have vendor NIP
+      if (originalInvoice && 
+          updatedInvoice.vendorNip && 
+          originalInvoice.vendorName !== updatedInvoice.vendorName) {
+        
+        // Save new NIP → vendor name mapping
+        await saveVendorNipMapping(updatedInvoice.vendorNip, updatedInvoice.vendorName);
+        
+        toast({
+          title: "Zapisano mapowanie NIP",
+          description: `NIP ${updatedInvoice.vendorNip} → ${updatedInvoice.vendorName}`
+        });
+      }
+
+      // Update invoice in Firebase
       await updateInvoice(updatedInvoice.id, updatedInvoice);
       
       // Update local state
