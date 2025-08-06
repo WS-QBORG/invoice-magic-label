@@ -289,7 +289,7 @@ export function InvoiceProcessor() {
         label = `${group};${mpk};${sequentialNumber}`;
       } else if (buyerNip === '8522669232') {
         const firstLetter = vendorName.charAt(0).toUpperCase();
-        sequentialNumber = `QB_${firstLetter}_${String(number).padStart(4, '0')}`;
+        sequentialNumber = `KT_${firstLetter}_${String(number).padStart(4, '0')}`;
         label = `${group};${mpk};${sequentialNumber}`;
       } else {
         // Standard formatting for other buyers
