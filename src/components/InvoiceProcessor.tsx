@@ -226,11 +226,17 @@ export function InvoiceProcessor() {
         fileName: selectedFile?.name
       };
 
-      // Save to Firebase
-      await saveInvoice(invoiceData);
+      // Save to Firebase and get the ID
+      const savedInvoiceId = await saveInvoice(invoiceData);
+      
+      // Update invoice with Firebase ID
+      const invoiceWithId = {
+        ...invoiceData,
+        id: savedInvoiceId
+      };
 
-      // Add to processed invoices list (will be updated via useInvoiceStorage)
-      setProcessedInvoices(prev => [invoiceData, ...prev]);
+      // Add to processed invoices list with ID
+      setProcessedInvoices(prev => [invoiceWithId, ...prev]);
       
       toast({
         title: "Faktura przetworzona i zapisana",
