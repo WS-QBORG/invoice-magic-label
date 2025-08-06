@@ -10,6 +10,7 @@ import { EditInvoiceDialog } from './EditInvoiceDialog';
 import { VendorMappingDialog } from './VendorMappingDialog';
 import { useFirebaseVendors } from '@/hooks/useFirebaseVendors';
 import { useVendorNipMapping } from '@/hooks/useVendorNipMapping';
+import { useBuyerNipMapping } from '@/hooks/useBuyerNipMapping';
 import { useInvoiceStorage } from '@/hooks/useInvoiceStorage';
 import { useInvoiceCounters } from '@/hooks/useInvoiceCounters';
 import { extractTextFromPdf, extractVendorName, extractVendorNip, extractBuyerName, extractBuyerNip, extractInvoiceNumber, extractIssueDate, extractDueDate, extractPaymentMethod } from '@/utils/pdfProcessor';
@@ -53,6 +54,11 @@ export function InvoiceProcessor() {
     checkVendorNameUpdate,
     loading: nipMappingLoading
   } = useVendorNipMapping();
+
+  const {
+    verifyBuyerNip,
+    updateBuyerLastUsed
+  } = useBuyerNipMapping();
 
   const {
     savedInvoices,
@@ -110,11 +116,31 @@ export function InvoiceProcessor() {
       const dueDate = extractDueDate(invoiceText);
       const paymentMethod = extractPaymentMethod(invoiceText);
 
+      // Verify buyer NIP using three-level verification
+      const buyerVerification = verifyBuyerNip(buyerName, buyerNip);
+      let finalBuyerNip = buyerNip;
+      
+      if (!buyerVerification.isValid && buyerVerification.correctedNip) {
+        console.log('🔧 Buyer NIP correction suggested:', {
+          original: buyerNip,
+          corrected: buyerVerification.correctedNip,
+          matchedBy: buyerVerification.matchedBy,
+          confidence: buyerVerification.confidence
+        });
+        
+        finalBuyerNip = buyerVerification.correctedNip;
+        
+        toast({
+          title: "NIP nabywcy poprawiony",
+          description: `Wykryto: ${buyerVerification.matchedBy === 'name' ? 'po nazwie' : 'po adresie'} (${Math.round(buyerVerification.confidence * 100)}% pewności)`
+        });
+      }
+
       console.log('📄 Extracted invoice data:', {
         vendorName,
         vendorNip,
         buyerName,
-        buyerNip,
+        buyerNip: finalBuyerNip,
         invoiceNumber,
         issueDate,
         dueDate,
@@ -139,10 +165,15 @@ export function InvoiceProcessor() {
       
       if (existingMapping) {
         // We have a mapping - proceed with processing
-          await finishProcessing(vendorName, vendorNip, buyerName, buyerNip, invoiceNumber, existingMapping.mpk, existingMapping.group, existingMapping.category, issueDate, dueDate, paymentMethod);
+          await finishProcessing(vendorName, vendorNip, buyerName, finalBuyerNip, invoiceNumber, existingMapping.mpk, existingMapping.group, existingMapping.category, issueDate, dueDate, paymentMethod);
         
         // Update last used timestamp
         await updateVendorLastUsed(vendorName);
+        
+        // Update buyer usage tracking if NIP was corrected
+        if (buyerVerification.correctedNip) {
+          await updateBuyerLastUsed(buyerVerification.correctedNip);
+        }
         
       } else {
         // No mapping found - try automatic detection
@@ -167,7 +198,7 @@ export function InvoiceProcessor() {
             detectedCategory.description
           );
           
-          await finishProcessing(vendorName, vendorNip, buyerName, buyerNip, invoiceNumber, detectedCategory.mpk, detectedCategory.group, detectedCategory.description, issueDate, dueDate, paymentMethod);
+          await finishProcessing(vendorName, vendorNip, buyerName, finalBuyerNip, invoiceNumber, detectedCategory.mpk, detectedCategory.group, detectedCategory.description, issueDate, dueDate, paymentMethod);
           
           toast({
             title: "Automatyczne przypisanie",
@@ -180,7 +211,7 @@ export function InvoiceProcessor() {
           
           setCurrentVendor(vendorName);
           setSuggestedMapping(detectedCategory);
-          setPendingInvoiceData({ vendorName, vendorNip, buyerName, buyerNip, invoiceNumber, issueDate, dueDate, paymentMethod });
+          setPendingInvoiceData({ vendorName, vendorNip, buyerName, buyerNip: finalBuyerNip, invoiceNumber, issueDate, dueDate, paymentMethod });
           setShowMappingDialog(true);
         }
       }
