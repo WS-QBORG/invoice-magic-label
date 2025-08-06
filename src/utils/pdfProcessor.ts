@@ -1,11 +1,16 @@
 /**
  * PDF Processing utilities for invoice text extraction
- * Handles PDF.js integration and text parsing
+ * Handles PDF.js integration, OCR, and text parsing
  */
+
+import Tesseract from 'tesseract.js';
 
 // PDF.js types (simplified)
 interface PdfJsPage {
   getTextContent(): Promise<{ items: { str: string }[] }>
+  getOperatorList(): Promise<any>
+  render(params: any): { promise: Promise<void> }
+  getViewport(params: { scale: number }): any
 }
 
 interface PdfJsDocument {
@@ -25,13 +30,18 @@ declare global {
 }
 
 /**
- * Extract text content from PDF file
- * @param file - PDF file to process
+ * Extract text content from PDF file or image file
+ * @param file - PDF or image file to process
  * @returns Promise with extracted text
  */
 export async function extractTextFromPdf(file: File): Promise<string> {
   try {
-    // Dynamically load PDF.js if not already loaded
+    // Handle image files directly with OCR
+    if (file.type.startsWith('image/')) {
+      return await extractTextFromImage(file);
+    }
+
+    // Handle PDF files
     if (!window.pdfjsLib) {
       await loadPdfJs();
     }
@@ -40,13 +50,25 @@ export async function extractTextFromPdf(file: File): Promise<string> {
     const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     
     let fullText = '';
+    let hasTextContent = false;
     
-    // Extract text from all pages
+    // First try to extract text normally
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
       const content = await page.getTextContent();
       const strings = content.items.map(item => item.str);
-      fullText += strings.join('\n') + '\n';
+      const pageText = strings.join('\n');
+      
+      if (pageText.trim().length > 0) {
+        hasTextContent = true;
+        fullText += pageText + '\n';
+      }
+    }
+    
+    // If no meaningful text found, try OCR on each page
+    if (!hasTextContent || fullText.trim().length < 50) {
+      console.log('PDF appears to be scanned, using OCR...');
+      fullText = await extractTextFromScannedPdf(pdf);
     }
     
     return fullText;
@@ -54,6 +76,74 @@ export async function extractTextFromPdf(file: File): Promise<string> {
     console.error('Error extracting text from PDF:', error);
     throw new Error('Nie udało się wyodrębnić tekstu z PDF');
   }
+}
+
+/**
+ * Extract text from image file using OCR
+ * @param file - Image file to process
+ * @returns Promise with extracted text
+ */
+export async function extractTextFromImage(file: File): Promise<string> {
+  try {
+    console.log('Extracting text from image using OCR...');
+    const { data: { text } } = await Tesseract.recognize(file, 'pol', {
+      logger: m => console.log(m)
+    });
+    return text;
+  } catch (error) {
+    console.error('Error extracting text from image:', error);
+    throw new Error('Nie udało się wyodrębnić tekstu z obrazu');
+  }
+}
+
+/**
+ * Extract text from scanned PDF using OCR
+ * @param pdf - PDF document object
+ * @returns Promise with extracted text
+ */
+async function extractTextFromScannedPdf(pdf: PdfJsDocument): Promise<string> {
+  let fullText = '';
+  
+  for (let i = 1; i <= pdf.numPages; i++) {
+    try {
+      const page = await pdf.getPage(i);
+      const viewport = page.getViewport({ scale: 2.0 });
+      
+      // Create canvas to render PDF page
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+      
+      if (!context) {
+        throw new Error('Could not get canvas context');
+      }
+      
+      // Render page to canvas
+      await page.render({
+        canvasContext: context,
+        viewport: viewport
+      }).promise;
+      
+      // Convert canvas to blob and run OCR
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+          else reject(new Error('Failed to create blob'));
+        }, 'image/png');
+      });
+      
+      const { data: { text } } = await Tesseract.recognize(blob, 'pol', {
+        logger: m => console.log(`Page ${i}:`, m)
+      });
+      
+      fullText += text + '\n';
+    } catch (error) {
+      console.error(`Error processing page ${i} with OCR:`, error);
+    }
+  }
+  
+  return fullText;
 }
 
 /**

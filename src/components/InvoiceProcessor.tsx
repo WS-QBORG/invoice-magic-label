@@ -46,13 +46,14 @@ export function InvoiceProcessor() {
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      if (file.type === 'application/pdf') {
+      const isValidType = file.type === 'application/pdf' || file.type.startsWith('image/');
+      if (isValidType) {
         setSelectedFile(file);
       } else {
         toast({
           variant: "destructive",
           title: "Nieprawidłowy format",
-          description: "Proszę wybrać plik PDF."
+          description: "Proszę wybrać plik PDF lub obraz (JPG, PNG)."
         });
       }
     }
@@ -66,7 +67,7 @@ export function InvoiceProcessor() {
       toast({
         variant: "destructive",
         title: "Brak pliku",
-        description: "Proszę wybrać plik PDF z fakturą."
+        description: "Proszę wybrać plik PDF lub obraz z fakturą."
       });
       return;
     }
@@ -313,11 +314,11 @@ export function InvoiceProcessor() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="invoice-file">Wybierz plik PDF</Label>
+            <Label htmlFor="invoice-file">Wybierz plik PDF lub obraz (JPG, PNG)</Label>
             <Input
               id="invoice-file"
               type="file"
-              accept=".pdf"
+              accept=".pdf,.jpg,.jpeg,.png"
               onChange={handleFileSelect}
               disabled={isLoading}
             />
