@@ -295,19 +295,21 @@ export function extractVendorNip(text: string): string | undefined {
     searchArea = text.slice(0, nabywcaIndex);
   }
   
+  // Look for NIP in the Sprzedawca section
+  const sprzedawcaMatch = searchArea.match(/Sprzedawca[\s\S]*?NIP[:\s-]*([0-9\s-]{10,})/i);
+  if (sprzedawcaMatch) {
+    const digits = sprzedawcaMatch[1].replace(/\D/g, '');
+    if (digits.length === 10) {
+      return digits;
+    }
+  }
+  
+  // Fallback: look for the first NIP in the vendor area
   const nipRegex = /NIP[:\s-]*([0-9\s-]{10,})/i;
   const match = searchArea.match(nipRegex);
 
   if (match) {
     const digits = match[1].replace(/\D/g, '');
-    if (digits.length === 10) {
-      return digits;
-    }
-  }
-
-  const fallback = searchArea.match(/[0-9\s-]{10,}/);
-  if (fallback) {
-    const digits = fallback[0].replace(/\D/g, '');
     if (digits.length === 10) {
       return digits;
     }
@@ -330,21 +332,34 @@ export function extractBuyerNip(text: string): string {
     searchArea = text.slice(nabywcaIndex);
   }
   
-  const nipRegex = /NIP[:\s-]*([0-9\s-]{10,})/i;
-  const match = searchArea.match(nipRegex);
-
-  if (match) {
-    const digits = match[1].replace(/\D/g, '');
+  // Look for NIP specifically in the Nabywca section
+  const nabywcaNipMatch = searchArea.match(/Nabywca[\s\S]*?NIP[:\s-]*([0-9\s-]{10,})/i);
+  if (nabywcaNipMatch) {
+    const digits = nabywcaNipMatch[1].replace(/\D/g, '');
     if (digits.length === 10) {
       return digits;
     }
   }
-
-  // Fallback: find any 10-digit sequence allowing spaces or hyphens
+  
+  // Alternative: look for NIP after buyer name
+  const buyerNameMatch = searchArea.match(/Nabywca[:\s]*([^\n]+)/i);
+  if (buyerNameMatch) {
+    const afterBuyerName = searchArea.slice(searchArea.indexOf(buyerNameMatch[0]) + buyerNameMatch[0].length);
+    const nipMatch = afterBuyerName.match(/NIP[:\s-]*([0-9\s-]{10,})/i);
+    if (nipMatch) {
+      const digits = nipMatch[1].replace(/\D/g, '');
+      if (digits.length === 10) {
+        return digits;
+      }
+    }
+  }
+  
+  // Last resort: find any 10-digit sequence in the Nabywca section, but exclude vendor NIP
+  const vendorNip = extractVendorNip(text);
   const fallback = searchArea.match(/[0-9\s-]{10,}/);
   if (fallback) {
     const digits = fallback[0].replace(/\D/g, '');
-    if (digits.length === 10) {
+    if (digits.length === 10 && digits !== vendorNip) {
       return digits;
     }
   }
