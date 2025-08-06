@@ -374,3 +374,150 @@ export function extractInvoiceNumber(text: string): string {
   
   return 'Nieznany';
 }
+
+/**
+ * Extract issue date from invoice text
+ * @param text - Full invoice text
+ * @returns Issue date or "Nieznana"
+ */
+export function extractIssueDate(text: string): string {
+  // Look for patterns like "Data wystawienia: 06.01.2025" or "Wystawiona: 2025-01-06"
+  const patterns = [
+    /Data\s+wystawienia:?\s*(\d{1,2}[.\-\/]\d{1,2}[.\-\/]\d{2,4})/i,
+    /Wystawiona:?\s*(\d{1,2}[.\-\/]\d{1,2}[.\-\/]\d{2,4})/i,
+    /Data\s+faktury:?\s*(\d{1,2}[.\-\/]\d{1,2}[.\-\/]\d{2,4})/i,
+    /Dnia:?\s*(\d{1,2}[.\-\/]\d{1,2}[.\-\/]\d{2,4})/i,
+    // ISO format
+    /Data\s+wystawienia:?\s*(\d{4}[.\-\/]\d{1,2}[.\-\/]\d{1,2})/i,
+    /Wystawiona:?\s*(\d{4}[.\-\/]\d{1,2}[.\-\/]\d{1,2})/i
+  ];
+  
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match) {
+      return normalizeDate(match[1]);
+    }
+  }
+  
+  // Fallback: look for any date near the beginning of the document
+  const lines = text.split('\n').slice(0, 15); // First 15 lines
+  for (const line of lines) {
+    const dateMatch = line.match(/(\d{1,2}[.\-\/]\d{1,2}[.\-\/]\d{2,4})/);
+    if (dateMatch && !line.toLowerCase().includes('nip') && !line.toLowerCase().includes('regon')) {
+      return normalizeDate(dateMatch[1]);
+    }
+  }
+  
+  return 'Nieznana';
+}
+
+/**
+ * Extract due date from invoice text
+ * @param text - Full invoice text
+ * @returns Due date or "Nieznana"
+ */
+export function extractDueDate(text: string): string {
+  // Look for patterns like "Termin płatności: 20.01.2025" or "Do zapłaty do: 2025-01-20"
+  const patterns = [
+    /Termin\s+płatności:?\s*(\d{1,2}[.\-\/]\d{1,2}[.\-\/]\d{2,4})/i,
+    /Do\s+zapłaty\s+do:?\s*(\d{1,2}[.\-\/]\d{1,2}[.\-\/]\d{2,4})/i,
+    /Zapłacić\s+do:?\s*(\d{1,2}[.\-\/]\d{1,2}[.\-\/]\d{2,4})/i,
+    /Data\s+płatności:?\s*(\d{1,2}[.\-\/]\d{1,2}[.\-\/]\d{2,4})/i,
+    /Płatność\s+do:?\s*(\d{1,2}[.\-\/]\d{1,2}[.\-\/]\d{2,4})/i,
+    // ISO format
+    /Termin\s+płatności:?\s*(\d{4}[.\-\/]\d{1,2}[.\-\/]\d{1,2})/i,
+    /Do\s+zapłaty\s+do:?\s*(\d{4}[.\-\/]\d{1,2}[.\-\/]\d{1,2})/i
+  ];
+  
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match) {
+      return normalizeDate(match[1]);
+    }
+  }
+  
+  return 'Nieznana';
+}
+
+/**
+ * Extract payment method from invoice text
+ * @param text - Full invoice text
+ * @returns Payment method or "Nieznany"
+ */
+export function extractPaymentMethod(text: string): string {
+  // Look for payment method patterns
+  const methods = [
+    { pattern: /przelew/i, method: 'Przelew bankowy' },
+    { pattern: /gotówka/i, method: 'Gotówka' },
+    { pattern: /karta/i, method: 'Karta płatnicza' },
+    { pattern: /blik/i, method: 'BLIK' },
+    { pattern: /paypal/i, method: 'PayPal' },
+    { pattern: /płatność\s+online/i, method: 'Płatność online' },
+    { pattern: /płatność\s+kartą/i, method: 'Karta płatnicza' },
+    { pattern: /płatność\s+bezgotówkowa/i, method: 'Przelew bankowy' },
+    { pattern: /płatność\s+gotówkowa/i, method: 'Gotówka' },
+    { pattern: /bank/i, method: 'Przelew bankowy' },
+    { pattern: /przekaz/i, method: 'Przekaz pocztowy' }
+  ];
+  
+  for (const { pattern, method } of methods) {
+    if (pattern.test(text)) {
+      return method;
+    }
+  }
+  
+  // Look for specific payment sections
+  const paymentSectionRegex = /Sposób\s+płatności:?\s*([^\n]+)/i;
+  const methodMatch = text.match(paymentSectionRegex);
+  if (methodMatch) {
+    const rawMethod = methodMatch[1].trim();
+    // Clean up common payment method descriptions
+    if (/przelew/i.test(rawMethod)) return 'Przelew bankowy';
+    if (/gotówka/i.test(rawMethod)) return 'Gotówka';
+    if (/karta/i.test(rawMethod)) return 'Karta płatnicza';
+    return rawMethod;
+  }
+  
+  return 'Nieznany';
+}
+
+/**
+ * Normalize date format to DD.MM.YYYY
+ * @param dateStr - Date string in various formats
+ * @returns Normalized date string
+ */
+function normalizeDate(dateStr: string): string {
+  try {
+    // Remove any extra spaces
+    let cleaned = dateStr.trim();
+    
+    // Handle different separators
+    cleaned = cleaned.replace(/[-\/]/g, '.');
+    
+    // Handle different formats
+    const parts = cleaned.split('.');
+    
+    if (parts.length === 3) {
+      let [part1, part2, part3] = parts;
+      
+      // Determine if it's DD.MM.YYYY or YYYY.MM.DD
+      if (part1.length === 4) {
+        // YYYY.MM.DD format
+        return `${part3.padStart(2, '0')}.${part2.padStart(2, '0')}.${part1}`;
+      } else {
+        // DD.MM.YYYY format
+        // Handle 2-digit years
+        if (part3.length === 2) {
+          const year = parseInt(part3);
+          part3 = year > 50 ? `19${part3}` : `20${part3}`;
+        }
+        return `${part1.padStart(2, '0')}.${part2.padStart(2, '0')}.${part3}`;
+      }
+    }
+    
+    return dateStr;
+  } catch (error) {
+    console.error('Error normalizing date:', error);
+    return dateStr;
+  }
+}

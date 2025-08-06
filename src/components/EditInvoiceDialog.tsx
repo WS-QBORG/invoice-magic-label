@@ -121,13 +121,46 @@ export function EditInvoiceDialog({ isOpen, onClose, onSave, invoice }: EditInvo
           </div>
 
           {/* Invoice Information */}
-          <div className="space-y-2">
-            <Label htmlFor="invoiceNumber">Numer faktury</Label>
-            <Input
-              id="invoiceNumber"
-              value={editedInvoice.invoiceNumber}
-              onChange={(e) => handleFieldChange('invoiceNumber', e.target.value)}
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="invoiceNumber">Numer faktury</Label>
+              <Input
+                id="invoiceNumber"
+                value={editedInvoice.invoiceNumber}
+                onChange={(e) => handleFieldChange('invoiceNumber', e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="issueDate">Data wystawienia</Label>
+              <Input
+                id="issueDate"
+                value={editedInvoice.issueDate || ''}
+                onChange={(e) => handleFieldChange('issueDate', e.target.value)}
+                placeholder="DD.MM.YYYY"
+              />
+            </div>
+          </div>
+
+          {/* Payment Information */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="dueDate">Termin płatności</Label>
+              <Input
+                id="dueDate"
+                value={editedInvoice.dueDate || ''}
+                onChange={(e) => handleFieldChange('dueDate', e.target.value)}
+                placeholder="DD.MM.YYYY"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="paymentMethod">Sposób płatności</Label>
+              <Input
+                id="paymentMethod"
+                value={editedInvoice.paymentMethod || ''}
+                onChange={(e) => handleFieldChange('paymentMethod', e.target.value)}
+                placeholder="np. Przelew bankowy"
+              />
+            </div>
           </div>
 
           {/* MPK and Group Selection */}

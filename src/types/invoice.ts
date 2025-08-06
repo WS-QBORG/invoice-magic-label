@@ -16,6 +16,9 @@ export interface InvoiceData {
   buyerName: string;     // Nabywca name  
   buyerNip: string;      // Nabywca NIP
   invoiceNumber: string; // Invoice number from document
+  issueDate?: string;    // Data wystawienia
+  dueDate?: string;      // Termin płatności
+  paymentMethod?: string; // Sposób płatności
   mpk: string;          // Assigned MPK
   group: string;        // Assigned group
   sequentialNumber: string; // Generated sequential number
@@ -37,6 +40,9 @@ export interface PendingInvoiceData {
   buyerName: string;
   buyerNip: string;
   invoiceNumber: string;
+  issueDate?: string;
+  dueDate?: string;
+  paymentMethod?: string;
 }
 
 export interface ProcessingResult {

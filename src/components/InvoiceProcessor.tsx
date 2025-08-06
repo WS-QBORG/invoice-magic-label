@@ -12,7 +12,7 @@ import { useFirebaseVendors } from '@/hooks/useFirebaseVendors';
 import { useVendorNipMapping } from '@/hooks/useVendorNipMapping';
 import { useInvoiceStorage } from '@/hooks/useInvoiceStorage';
 import { useInvoiceCounters } from '@/hooks/useInvoiceCounters';
-import { extractTextFromPdf, extractVendorName, extractVendorNip, extractBuyerName, extractBuyerNip, extractInvoiceNumber } from '@/utils/pdfProcessor';
+import { extractTextFromPdf, extractVendorName, extractVendorNip, extractBuyerName, extractBuyerNip, extractInvoiceNumber, extractIssueDate, extractDueDate, extractPaymentMethod } from '@/utils/pdfProcessor';
 import { detectInvoiceCategory, detectVendorSpecificCategory, type CategoryMatch } from '@/utils/categoryDetector';
 import { InvoiceData, type PendingInvoiceData } from '@/types/invoice';
 import { useToast } from '@/hooks/use-toast';
@@ -104,13 +104,19 @@ export function InvoiceProcessor() {
       const buyerName = extractBuyerName(invoiceText);
       const buyerNip = extractBuyerNip(invoiceText);
       const invoiceNumber = extractInvoiceNumber(invoiceText);
+      const issueDate = extractIssueDate(invoiceText);
+      const dueDate = extractDueDate(invoiceText);
+      const paymentMethod = extractPaymentMethod(invoiceText);
 
       console.log('📄 Extracted invoice data:', {
         vendorName,
         vendorNip,
         buyerName,
         buyerNip,
-        invoiceNumber
+        invoiceNumber,
+        issueDate,
+        dueDate,
+        paymentMethod
       });
 
       // Check vendor name against NIP mapping
@@ -131,7 +137,7 @@ export function InvoiceProcessor() {
       
       if (existingMapping) {
         // We have a mapping - proceed with processing
-        await finishProcessing(vendorName, vendorNip, buyerName, buyerNip, invoiceNumber, existingMapping.mpk, existingMapping.group, existingMapping.category);
+          await finishProcessing(vendorName, vendorNip, buyerName, buyerNip, invoiceNumber, existingMapping.mpk, existingMapping.group, existingMapping.category, issueDate, dueDate, paymentMethod);
         
         // Update last used timestamp
         await updateVendorLastUsed(vendorName);
@@ -159,7 +165,7 @@ export function InvoiceProcessor() {
             detectedCategory.description
           );
           
-          await finishProcessing(vendorName, vendorNip, buyerName, buyerNip, invoiceNumber, detectedCategory.mpk, detectedCategory.group, detectedCategory.description);
+          await finishProcessing(vendorName, vendorNip, buyerName, buyerNip, invoiceNumber, detectedCategory.mpk, detectedCategory.group, detectedCategory.description, issueDate, dueDate, paymentMethod);
           
           toast({
             title: "Automatyczne przypisanie",
@@ -172,7 +178,7 @@ export function InvoiceProcessor() {
           
           setCurrentVendor(vendorName);
           setSuggestedMapping(detectedCategory);
-          setPendingInvoiceData({ vendorName, vendorNip, buyerName, buyerNip, invoiceNumber });
+          setPendingInvoiceData({ vendorName, vendorNip, buyerName, buyerNip, invoiceNumber, issueDate, dueDate, paymentMethod });
           setShowMappingDialog(true);
         }
       }
@@ -200,7 +206,10 @@ export function InvoiceProcessor() {
     invoiceNumber: string,
     mpk: string,
     group: string,
-    category?: string
+    category?: string,
+    issueDate?: string,
+    dueDate?: string,
+    paymentMethod?: string
   ) => {
     try {
       // Generate sequential number for this buyer NIP + MPK + Group combination
@@ -218,6 +227,9 @@ export function InvoiceProcessor() {
         buyerName,
         buyerNip,
         invoiceNumber,
+        issueDate,
+        dueDate,
+        paymentMethod,
         mpk,
         group,
         sequentialNumber,
@@ -284,7 +296,10 @@ export function InvoiceProcessor() {
         pendingInvoiceData.invoiceNumber,
         mpk,
         group,
-        category
+        category,
+        pendingInvoiceData.issueDate,
+        pendingInvoiceData.dueDate,
+        pendingInvoiceData.paymentMethod
       );
       
       // Clear pending data
@@ -411,6 +426,9 @@ export function InvoiceProcessor() {
       'Nazwa nabywcy', 
       'NIP nabywcy',
       'Numer faktury',
+      'Data wystawienia',
+      'Termin płatności',
+      'Sposób płatności',
       'MPK',
       'Grupa',
       'Numer kolejny',
@@ -425,6 +443,9 @@ export function InvoiceProcessor() {
         `"${invoice.buyerName}"`,
         invoice.buyerNip,
         `"${invoice.invoiceNumber}"`,
+        invoice.issueDate || '',
+        invoice.dueDate || '',
+        invoice.paymentMethod || '',
         invoice.mpk,
         invoice.group,
         invoice.sequentialNumber,
@@ -558,6 +579,13 @@ export function InvoiceProcessor() {
                         <span>NIP nabywcy: {invoice.buyerNip}</span>
                       </div>
                     </div>
+                    {(invoice.issueDate || invoice.dueDate || invoice.paymentMethod) && (
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {invoice.issueDate && <span>Data wystawienia: {invoice.issueDate} </span>}
+                        {invoice.dueDate && <span>Termin płatności: {invoice.dueDate} </span>}
+                        {invoice.paymentMethod && <span>Płatność: {invoice.paymentMethod}</span>}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
