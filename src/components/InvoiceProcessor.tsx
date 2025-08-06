@@ -661,8 +661,8 @@ export function InvoiceProcessor() {
       // Embed font
       const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
       
-      // Prepare label text
-      const labelText = `${invoice.group} – ${invoice.mpk} – ${invoice.sequentialNumber}`;
+      // Prepare label text (use the complete label that includes client number if present)
+      const labelText = invoice.label;
       
       // Add label to top right corner
       firstPage.drawText(labelText, {
