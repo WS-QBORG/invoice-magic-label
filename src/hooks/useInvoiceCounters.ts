@@ -98,10 +98,47 @@ export function useInvoiceCounters() {
     }
   };
 
+  /**
+   * Reset counter to specific number for given buyer NIP, MPK and Group
+   * @param buyerNip - NIP of the buyer
+   * @param mpk - MPK code  
+   * @param group - Group code
+   * @param newLastNumber - New last number to set
+   */
+  const resetCounter = async (
+    buyerNip: string,
+    mpk: string,
+    group: string,
+    newLastNumber: number
+  ): Promise<void> => {
+    try {
+      setLoading(true);
+      const currentYear = new Date().getFullYear();
+      
+      const counterKey = `${mpk}_${group}`.replace(/[^a-zA-Z0-9_]/g, '_');
+      const counterRef = ref(database, `counters/${buyerNip}/${counterKey}`);
+      
+      const newCounter: InvoiceCounter = {
+        lastNumber: newLastNumber,
+        year: currentYear
+      };
+      
+      await set(counterRef, newCounter);
+      setError(null);
+    } catch (err) {
+      console.error('Error resetting counter:', err);
+      setError('Nie udało się zresetować licznika');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return {
     loading,
     error,
     getNextSequentialNumber,
-    getCurrentCounter
+    getCurrentCounter,
+    resetCounter
   };
 }

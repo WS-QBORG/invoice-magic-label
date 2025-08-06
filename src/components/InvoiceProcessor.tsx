@@ -42,6 +42,7 @@ export function InvoiceProcessor() {
   
   const { 
     getNextSequentialNumber, 
+    resetCounter,
     loading: countersLoading 
   } = useInvoiceCounters();
 
@@ -517,6 +518,23 @@ export function InvoiceProcessor() {
 
   const isLoading = processing || vendorsLoading || countersLoading || nipMappingLoading || invoiceStorageLoading;
 
+  // One-time reset for specific NIP to start from 0125
+  const resetSpecialCounter = async () => {
+    try {
+      await resetCounter('8522482321', 'MPK510', '1/41', 124);
+      toast({
+        title: "Licznik zresetowany",
+        description: "Następny numer będzie KJ_I_0125"
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Błąd resetowania",
+        description: "Nie udało się zresetować licznika"
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* File Upload Section */}
@@ -576,10 +594,15 @@ export function InvoiceProcessor() {
               <CheckCircle2 className="h-5 w-5 text-success" />
               Przetworzone faktury ({processedInvoices.length})
             </CardTitle>
-            <Button onClick={exportToExcel} variant="outline">
-              <Download className="h-4 w-4 mr-2" />
-              Eksportuj do Excel
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={resetSpecialCounter} variant="outline" size="sm">
+                Reset KJ licznik
+              </Button>
+              <Button onClick={exportToExcel} variant="outline">
+                <Download className="h-4 w-4 mr-2" />
+                Eksportuj do Excel
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
