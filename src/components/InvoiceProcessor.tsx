@@ -140,7 +140,7 @@ export function InvoiceProcessor() {
       // Extract basic invoice data
       let vendorName = extractVendorName(invoiceText);
       const vendorNip = extractVendorNip(invoiceText);
-      const buyerName = extractBuyerName(invoiceText);
+      let buyerName = extractBuyerName(invoiceText);
       const buyerNip = extractBuyerNip(invoiceText);
       const invoiceNumber = extractInvoiceNumber(invoiceText);
       const issueDate = extractIssueDate(invoiceText);
@@ -160,6 +160,13 @@ export function InvoiceProcessor() {
         });
         
         finalBuyerNip = buyerVerification.correctedNip;
+        
+        // Update buyer name based on corrected NIP
+        if (buyerVerification.correctedNip === '8522482321') {
+          buyerName = 'TWÓJ INSTALATOR PIOTR MURAWSKI';
+        } else if (buyerVerification.correctedNip === '8522669232') {
+          buyerName = 'QBORG SPÓŁKA';
+        }
         
         toast({
           title: "NIP nabywcy poprawiony",
