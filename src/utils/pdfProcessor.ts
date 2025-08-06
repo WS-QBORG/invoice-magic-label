@@ -170,11 +170,11 @@ async function loadPdfJs(): Promise<void> {
  * @returns Vendor name or "Nie znaleziono"
  */
 export function extractVendorName(text: string): string {
-  // Try to extract after 'Sprzedawca:' up to next newline
+  // First try to find explicit "Sprzedawca:" pattern
   const sprzedawcaRegex = /Sprzedawca:?\s*\n?([^\n]+)/i;
   let match = text.match(sprzedawcaRegex);
   
-  if (match) {
+  if (match && match[1].trim() && !match[1].trim().toLowerCase().includes('nabywca')) {
     return match[1].trim();
   }
   
@@ -187,44 +187,38 @@ export function extractVendorName(text: string): string {
   
   for (const pattern of vendorPatterns) {
     match = text.match(pattern);
-    if (match) {
+    if (match && match[1].trim()) {
       return match[1].trim();
     }
   }
   
-  // If no explicit pattern found, look for company name in header before "Nabywca"
+  // Look for company name in the header (first few lines before "Nabywca")
   const nabywcaIndex = text.search(/Nabywca/i);
   const searchArea = nabywcaIndex >= 0 ? text.slice(0, nabywcaIndex) : text.slice(0, Math.min(500, text.length));
   
-  const lines = searchArea.split(/\n/).map(line => line.trim()).filter(line => line.length > 0);
+  const lines = searchArea.split(/\n/).map(line => line.trim()).filter(line => line.length > 2);
   
-  // Look for company identifiers (usually appear early in the document)
-  for (let i = 0; i < Math.min(10, lines.length); i++) {
+  // Look for company identifiers in the first part of the document
+  for (let i = 0; i < Math.min(8, lines.length); i++) {
     const line = lines[i];
     
-    // Skip lines that are clearly not company names
-    if (/faktura|invoice|data|nr|nip:|ul\.|adres|kod|tel:|email|www\./i.test(line)) {
+    // Skip obviously non-company lines
+    if (/faktura|invoice|data|nr[\s:]|nip[\s:]|ul[\s\.]|adres|kod|tel[\s:]|email|www\.|http/i.test(line)) {
       continue;
     }
     
-    // Look for company patterns
-    if ((/sp\.?\s*z\s*o\.?o\.?/i.test(line) || 
+    // Look for company patterns or just substantial text that could be a company name
+    if (line.length > 5 && (
+         /sp\.?\s*z\s*o\.?o\.?/i.test(line) || 
          /s\.a\./i.test(line) || 
          /ltd/i.test(line) ||
          /sp\.\s*j\./i.test(line) ||
          /spółka/i.test(line) ||
          /przedsiębiorstwo/i.test(line) ||
-         /firma/i.test(line)) && 
-        line.length > 5) {
+         /ipos/i.test(line) ||
+         (i < 3 && /[A-ZĄĆĘŁŃÓŚŹŻ]/.test(line) && line.length > 8) // Company name in header
+       )) {
       return line.trim();
-    }
-    
-    // If it's one of the first few lines and contains company-like words, it might be the vendor
-    if (i < 3 && line.length > 10 && /[A-ZĄĆĘŁŃÓŚŹŻ]/i.test(line)) {
-      // Additional check for company indicators
-      if (/ipos|sa\s|sp\.|ltd|gmbh|llc/i.test(line)) {
-        return line.trim();
-      }
     }
   }
   
@@ -324,16 +318,17 @@ export function extractVendorNip(text: string): string | undefined {
  * @returns Buyer NIP or "Brak"
  */
 export function extractBuyerNip(text: string): string {
-  // Look for NIP after "Nabywca" section
+  // Look for NIP specifically in the Nabywca section
   const nabywcaIndex = text.search(/Nabywca/i);
-  let searchArea = text;
-  
-  if (nabywcaIndex >= 0) {
-    searchArea = text.slice(nabywcaIndex);
+  if (nabywcaIndex === -1) {
+    return 'Brak';
   }
   
-  // Look for NIP specifically in the Nabywca section
-  const nabywcaNipMatch = searchArea.match(/Nabywca[\s\S]*?NIP[:\s-]*([0-9\s-]{10,})/i);
+  // Get text starting from "Nabywca" to end of document
+  const nabywcaSection = text.slice(nabywcaIndex);
+  
+  // First, try to find NIP explicitly mentioned after Nabywca
+  const nabywcaNipMatch = nabywcaSection.match(/Nabywca[\s\S]{1,200}?NIP[:\s-]*([0-9\s-]{10,})/i);
   if (nabywcaNipMatch) {
     const digits = nabywcaNipMatch[1].replace(/\D/g, '');
     if (digits.length === 10) {
@@ -341,26 +336,27 @@ export function extractBuyerNip(text: string): string {
     }
   }
   
-  // Alternative: look for NIP after buyer name
-  const buyerNameMatch = searchArea.match(/Nabywca[:\s]*([^\n]+)/i);
-  if (buyerNameMatch) {
-    const afterBuyerName = searchArea.slice(searchArea.indexOf(buyerNameMatch[0]) + buyerNameMatch[0].length);
-    const nipMatch = afterBuyerName.match(/NIP[:\s-]*([0-9\s-]{10,})/i);
-    if (nipMatch) {
-      const digits = nipMatch[1].replace(/\D/g, '');
-      if (digits.length === 10) {
-        return digits;
+  // Get vendor NIP to avoid confusion
+  const vendorNip = extractVendorNip(text);
+  
+  // Look for any 10-digit number in the Nabywca section that's not the vendor NIP
+  const nipMatches = nabywcaSection.match(/\b\d{10}\b/g);
+  if (nipMatches) {
+    for (const nipMatch of nipMatches) {
+      if (nipMatch !== vendorNip && nipMatch.length === 10) {
+        return nipMatch;
       }
     }
   }
   
-  // Last resort: find any 10-digit sequence in the Nabywca section, but exclude vendor NIP
-  const vendorNip = extractVendorNip(text);
-  const fallback = searchArea.match(/[0-9\s-]{10,}/);
-  if (fallback) {
-    const digits = fallback[0].replace(/\D/g, '');
-    if (digits.length === 10 && digits !== vendorNip) {
-      return digits;
+  // Fallback: look for any sequence of 10 digits with possible spaces/hyphens
+  const allNumbers = nabywcaSection.match(/[0-9\s-]{10,}/g);
+  if (allNumbers) {
+    for (const numberSeq of allNumbers) {
+      const digits = numberSeq.replace(/\D/g, '');
+      if (digits.length === 10 && digits !== vendorNip) {
+        return digits;
+      }
     }
   }
 
