@@ -29,10 +29,8 @@ export function useInvoiceCounters() {
       setLoading(true);
       const currentYear = new Date().getFullYear();
       
-      // Create unique key for this buyer NIP + MPK combination only (ignore group letters)
-      // This ensures all variations like KJ_A_0125, KJ_I_0126 etc. use the same counter
-      const counterKey = `${mpk}`.replace(/[^a-zA-Z0-9_]/g, '_');
-      const counterRef = ref(database, `counters/${buyerNip}/${counterKey}`);
+      // Global counter for this buyer NIP - counts all invoices regardless of MPK/Group
+      const counterRef = ref(database, `counters/${buyerNip}/global`);
       
       const snapshot = await get(counterRef);
       let counter: InvoiceCounter;
@@ -88,8 +86,7 @@ export function useInvoiceCounters() {
     group: string
   ): Promise<InvoiceCounter | null> => {
     try {
-      const counterKey = `${mpk}`.replace(/[^a-zA-Z0-9_]/g, '_');
-      const counterRef = ref(database, `counters/${buyerNip}/${counterKey}`);
+      const counterRef = ref(database, `counters/${buyerNip}/global`);
       
       const snapshot = await get(counterRef);
       return snapshot.exists() ? snapshot.val() : null;
@@ -116,8 +113,7 @@ export function useInvoiceCounters() {
       setLoading(true);
       const currentYear = new Date().getFullYear();
       
-      const counterKey = `${mpk}`.replace(/[^a-zA-Z0-9_]/g, '_');
-      const counterRef = ref(database, `counters/${buyerNip}/${counterKey}`);
+      const counterRef = ref(database, `counters/${buyerNip}/global`);
       
       const newCounter: InvoiceCounter = {
         lastNumber: newLastNumber,
