@@ -33,6 +33,8 @@ export function InvoiceProcessor() {
   const [editingInvoice, setEditingInvoice] = useState<InvoiceData | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [fileStorage, setFileStorage] = useState<Map<string, File>>(new Map()); // Store original files
+  const [resetNip, setResetNip] = useState('');
+  const [resetNumber, setResetNumber] = useState('');
 
   const { toast } = useToast();
   const { 
@@ -48,14 +50,26 @@ export function InvoiceProcessor() {
     loading: countersLoading 
   } = useInvoiceCounters();
 
-  // Reset counter for specific NIP
-  const handleResetCounter = async () => {
+  // Reset counter for custom NIP and number
+  const handleCustomResetCounter = async () => {
+    if (!resetNip || !resetNumber) {
+      toast({
+        variant: "destructive",
+        title: "Błąd",
+        description: "Podaj NIP i numer startowy"
+      });
+      return;
+    }
+
     try {
-      await resetCounter('8522482321', '', '', 123); // Set to 123 so next invoice will be 0124
+      const startNumber = parseInt(resetNumber) - 1; // Subtract 1 so next invoice gets the desired number
+      await resetCounter(resetNip, '', '', startNumber);
       toast({
         title: "Licznik zresetowany",
-        description: "Licznik dla NIP 8522482321 został ustawiony na 0124"
+        description: `Licznik dla NIP ${resetNip} został ustawiony. Następny numer: ${resetNumber}`
       });
+      setResetNip('');
+      setResetNumber('');
     } catch (error) {
       toast({
         variant: "destructive",
@@ -739,10 +753,32 @@ export function InvoiceProcessor() {
               <CheckCircle2 className="h-5 w-5 text-success" />
               Przetworzone faktury ({processedInvoices.length})
             </CardTitle>
-            <div className="flex gap-2">
-              <Button onClick={handleResetCounter} variant="outline" size="sm">
-                Reset do 0124
-              </Button>
+            <div className="flex gap-2 flex-wrap">
+              <div className="flex gap-2 items-end">
+                <div>
+                  <Label htmlFor="reset-nip" className="text-xs">NIP</Label>
+                  <Input
+                    id="reset-nip"
+                    placeholder="NIP nabywcy"
+                    value={resetNip}
+                    onChange={(e) => setResetNip(e.target.value)}
+                    className="w-32 h-8"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="reset-number" className="text-xs">Następny numer</Label>
+                  <Input
+                    id="reset-number"
+                    placeholder="np. 0124"
+                    value={resetNumber}
+                    onChange={(e) => setResetNumber(e.target.value)}
+                    className="w-24 h-8"
+                  />
+                </div>
+                <Button onClick={handleCustomResetCounter} variant="outline" size="sm">
+                  Reset licznik
+                </Button>
+              </div>
               <Button onClick={exportToExcel} variant="outline">
                 <Download className="h-4 w-4 mr-2" />
                 Eksportuj do Excel
