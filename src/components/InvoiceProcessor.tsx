@@ -143,7 +143,12 @@ export function InvoiceProcessor() {
       let vendorName = extractVendorName(invoiceText);
       const vendorNip = extractVendorNip(invoiceText);
       let buyerName = extractBuyerName(invoiceText);
-      const buyerNip = extractBuyerNip(invoiceText);
+      const rawBuyerNip = extractBuyerNip(invoiceText);
+      const sanitizeNip = (nip?: string) => {
+        const digits = (nip || '').replace(/\D/g, '');
+        return digits.length === 10 ? digits : '';
+      };
+      let buyerNip = sanitizeNip(rawBuyerNip);
       const invoiceNumber = extractInvoiceNumber(invoiceText);
       const issueDate = extractIssueDate(invoiceText);
       const dueDate = extractDueDate(invoiceText);
@@ -201,14 +206,19 @@ export function InvoiceProcessor() {
       }
 
       // If buyer data is missing, try to reuse last saved buyer for this vendor
-      if ((!finalBuyerNip || finalBuyerNip.trim() === '') && vendorName) {
+      {
         const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
-        const lastInvoiceForVendor = savedInvoices.find((inv) => norm(inv.vendorName) === norm(vendorName) && !!inv.buyerNip);
-        if (lastInvoiceForVendor) {
-          buyerName = lastInvoiceForVendor.buyerName;
-          finalBuyerNip = lastInvoiceForVendor.buyerNip;
-          console.log('↩️ Reused buyer from history for vendor', vendorName, '→', { buyerName, buyerNip: finalBuyerNip });
-          toast({ title: 'Użyto zapisanych danych nabywcy', description: `${lastInvoiceForVendor.buyerName} (${lastInvoiceForVendor.buyerNip})` });
+        const isNipMissing = !finalBuyerNip || finalBuyerNip.trim() === '' || finalBuyerNip.replace(/\D/g, '').length !== 10;
+        if (isNipMissing && vendorName) {
+          const lastInvoiceForVendor =
+            processedInvoices.find((inv) => norm(inv.vendorName) === norm(vendorName) && !!inv.buyerNip) ||
+            savedInvoices.find((inv) => norm(inv.vendorName) === norm(vendorName) && !!inv.buyerNip);
+          if (lastInvoiceForVendor) {
+            buyerName = lastInvoiceForVendor.buyerName;
+            finalBuyerNip = lastInvoiceForVendor.buyerNip;
+            console.log('↩️ Reused buyer from history for vendor', vendorName, '→', { buyerName, buyerNip: finalBuyerNip });
+            toast({ title: 'Użyto zapisanych danych nabywcy', description: `${lastInvoiceForVendor.buyerName} (${lastInvoiceForVendor.buyerNip})` });
+          }
         }
       }
 
