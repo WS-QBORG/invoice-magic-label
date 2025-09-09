@@ -344,7 +344,7 @@ export function InvoiceProcessor() {
         sequentialNumber = `KJ_${firstLetter}_${String(number).padStart(4, '0')}`;
         label = clientNumber ? `${group};${mpk};${sequentialNumber};${clientNumber}` : `${group};${mpk};${sequentialNumber}`;
       } else if (buyerNip === '8522669232') {
-        const firstLetter = vendorName.charAt(0).toUpperCase();
+        const firstLetter = buyerName.charAt(0).toUpperCase();
         sequentialNumber = `KT_${firstLetter}_${String(number).padStart(4, '0')}`;
         label = clientNumber ? `${group};${mpk};${sequentialNumber};${clientNumber}` : `${group};${mpk};${sequentialNumber}`;
       } else {
