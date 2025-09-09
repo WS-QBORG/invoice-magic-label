@@ -707,6 +707,16 @@ export function InvoiceProcessor() {
 
       if (!pdfToAnnotate) return;
 
+      // Check if file is PDF
+      if (pdfToAnnotate.type !== 'application/pdf') {
+        toast({
+          variant: "destructive", 
+          title: "Nieobsługiwany format",
+          description: "Dodawanie etykiet do obrazów (JPG/PNG) nie jest jeszcze obsługiwane. Funkcja działa tylko z plikami PDF."
+        });
+        return;
+      }
+
       const arrayBuffer = await pdfToAnnotate.arrayBuffer();
       const pdfDoc = await PDFDocument.load(arrayBuffer);
       
