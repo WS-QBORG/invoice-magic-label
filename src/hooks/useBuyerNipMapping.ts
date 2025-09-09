@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ref, get, set } from 'firebase/database';
-import { database } from '@/lib/firebase';
+import { database, ensureAuthReady } from '@/lib/firebase';
 
 interface BuyerMapping {
   nip: string;
@@ -44,6 +44,7 @@ export function useBuyerNipMapping() {
   const loadBuyerMappings = async () => {
     try {
       setLoading(true);
+      await ensureAuthReady();
       const mappingsRef = ref(database, 'buyerMappings');
       const snapshot = await get(mappingsRef);
       
@@ -185,6 +186,7 @@ export function useBuyerNipMapping() {
     address: string = ''
   ) => {
     try {
+      await ensureAuthReady();
       setLoading(true);
       
       const mapping: BuyerMapping = {
@@ -223,6 +225,7 @@ export function useBuyerNipMapping() {
    */
   const updateBuyerLastUsed = async (nip: string) => {
     try {
+      await ensureAuthReady();
       const mapping = Object.entries(buyerMappings).find(([_, m]) => m.nip === nip);
       if (mapping) {
         const [key, mappingData] = mapping;

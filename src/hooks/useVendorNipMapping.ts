@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ref, get, set, push, child } from 'firebase/database';
-import { database } from '@/lib/firebase';
+import { database, ensureAuthReady } from '@/lib/firebase';
 
 /**
  * Custom hook for managing vendor NIP to name mappings
@@ -16,6 +16,7 @@ export function useVendorNipMapping() {
   const loadVendorNipMappings = async () => {
     try {
       setLoading(true);
+      await ensureAuthReady();
       const mappingsRef = ref(database, 'vendorNipMappings');
       const snapshot = await get(mappingsRef);
       
@@ -50,6 +51,7 @@ export function useVendorNipMapping() {
    */
   const saveVendorNipMapping = async (vendorNip: string, vendorName: string) => {
     try {
+      await ensureAuthReady();
       setLoading(true);
       
       // Update local state immediately

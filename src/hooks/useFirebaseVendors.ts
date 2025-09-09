@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ref, get, set, push, query, orderByChild } from 'firebase/database';
-import { database } from '@/lib/firebase';
+import { database, ensureAuthReady } from '@/lib/firebase';
 import { VendorMapping } from '@/types/invoice';
 
 /**
@@ -23,6 +23,7 @@ export function useFirebaseVendors() {
   const loadVendors = async () => {
     try {
       setLoading(true);
+      await ensureAuthReady();
       const vendorsRef = ref(database, 'vendors');
       const snapshot = await get(vendorsRef);
       
@@ -80,6 +81,7 @@ export function useFirebaseVendors() {
     category?: string
   ): Promise<boolean> => {
     try {
+      await ensureAuthReady();
       const vendorKey = vendorName.toLowerCase().replace(/[^a-z0-9]/g, '');
       const vendorData: VendorMapping = {
         name: vendorName,
@@ -113,6 +115,7 @@ export function useFirebaseVendors() {
    */
   const updateVendorLastUsed = async (vendorName: string): Promise<void> => {
     try {
+      await ensureAuthReady();
       const vendorKey = vendorName.toLowerCase().replace(/[^a-z0-9]/g, '');
       const vendor = vendors[vendorKey];
       

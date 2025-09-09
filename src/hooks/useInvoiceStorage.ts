@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ref, get, set, push, child, remove } from 'firebase/database';
-import { database } from '@/lib/firebase';
+import { database, ensureAuthReady } from '@/lib/firebase';
 import { InvoiceData } from '@/types/invoice';
 
 /**
@@ -17,6 +17,7 @@ export function useInvoiceStorage() {
   const loadSavedInvoices = async () => {
     try {
       setLoading(true);
+      await ensureAuthReady();
       const invoicesRef = ref(database, 'processedInvoices');
       const snapshot = await get(invoicesRef);
       
@@ -49,6 +50,7 @@ export function useInvoiceStorage() {
   const saveInvoice = async (invoice: InvoiceData): Promise<string> => {
     try {
       setLoading(true);
+      await ensureAuthReady();
       
       const invoicesRef = ref(database, 'processedInvoices');
       const newInvoiceRef = push(invoicesRef);
@@ -83,6 +85,7 @@ export function useInvoiceStorage() {
   const updateInvoice = async (invoiceId: string, updatedInvoice: InvoiceData) => {
     try {
       setLoading(true);
+      await ensureAuthReady();
       
       const invoiceRef = ref(database, `processedInvoices/${invoiceId}`);
       const invoiceToUpdate = {
@@ -117,6 +120,7 @@ export function useInvoiceStorage() {
   const deleteInvoice = async (invoiceId: string) => {
     try {
       setLoading(true);
+      await ensureAuthReady();
       
       const invoiceRef = ref(database, `processedInvoices/${invoiceId}`);
       await remove(invoiceRef);
