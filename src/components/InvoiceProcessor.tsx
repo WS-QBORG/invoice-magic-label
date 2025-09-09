@@ -17,6 +17,7 @@ import { extractTextFromPdf, extractVendorName, extractVendorNip, extractBuyerNa
 import { detectInvoiceCategory, detectVendorSpecificCategory, type CategoryMatch } from '@/utils/categoryDetector';
 import { InvoiceData, type PendingInvoiceData } from '@/types/invoice';
 import { useToast } from '@/hooks/use-toast';
+import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 
 /**
  * Main component for processing invoices
@@ -684,9 +685,6 @@ export function InvoiceProcessor() {
    */
   const downloadAnnotatedInvoice = async (invoice: InvoiceData) => {
     try {
-      // Import pdf-lib dynamically
-      const { PDFDocument, rgb, StandardFonts } = await import('pdf-lib');
-      
       let pdfToAnnotate: File | undefined;
       
       // First try to get file from storage
