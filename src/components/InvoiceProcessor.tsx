@@ -200,6 +200,18 @@ export function InvoiceProcessor() {
         });
       }
 
+      // If buyer data is missing, try to reuse last saved buyer for this vendor
+      if ((!finalBuyerNip || finalBuyerNip.trim() === '') && vendorName) {
+        const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
+        const lastInvoiceForVendor = savedInvoices.find((inv) => norm(inv.vendorName) === norm(vendorName) && !!inv.buyerNip);
+        if (lastInvoiceForVendor) {
+          buyerName = lastInvoiceForVendor.buyerName;
+          finalBuyerNip = lastInvoiceForVendor.buyerNip;
+          console.log('↩️ Reused buyer from history for vendor', vendorName, '→', { buyerName, buyerNip: finalBuyerNip });
+          toast({ title: 'Użyto zapisanych danych nabywcy', description: `${lastInvoiceForVendor.buyerName} (${lastInvoiceForVendor.buyerNip})` });
+        }
+      }
+
       // Check if we have a mapping for this vendor
       const existingMapping = findVendorMapping(vendorName);
       
