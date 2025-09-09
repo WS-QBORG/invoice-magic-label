@@ -17,9 +17,11 @@ const app = initializeApp(firebaseConfig);
 // Initialize Realtime Database and get a reference to the service
 export const database: Database = getDatabase(app);
 
-// Initialize Auth (optional but recommended). If full web config isn't provided,
-// auth initialization may still work but anonymous sign-in can fail. We handle that gracefully.
-export const auth: Auth = getAuth(app);
+// Detect whether Auth can be initialized (requires apiKey in config)
+const hasAuthConfig = !!(firebaseConfig as any).apiKey;
+
+// Initialize Auth only if configured; export as nullable to avoid crashes without apiKey
+export let auth: Auth | null = null;
 
 let authReadyResolve: (() => void) | null = null;
 const authReadyPromise: Promise<void> = new Promise((resolve) => {
@@ -36,6 +38,14 @@ function resolveAuthReady() {
 // Start anonymous auth to satisfy RTDB rules that require authenticated users
 (function initAnonymousAuth() {
   try {
+    if (!hasAuthConfig) {
+      console.warn('ℹ️ Firebase Auth not configured (missing apiKey). Skipping auth init.');
+      resolveAuthReady();
+      return;
+    }
+
+    auth = getAuth(app);
+
     onAuthStateChanged(auth, (user) => {
       if (user) {
         console.log('✅ Firebase auth ready. UID:', user.uid);
