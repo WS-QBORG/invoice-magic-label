@@ -89,6 +89,7 @@ export function InvoiceProcessor() {
 
   const {
     verifyBuyerNip,
+    saveBuyerMapping,
     updateBuyerLastUsed
   } = useBuyerNipMapping();
 
@@ -449,6 +450,19 @@ export function InvoiceProcessor() {
           title: "Zapisano mapowanie NIP",
           description: `NIP ${updatedInvoice.vendorNip} → ${updatedInvoice.vendorName}`
         });
+      }
+
+      // Check if buyer data changed and save buyer mapping for future detection
+      if (originalInvoice && (
+          originalInvoice.buyerNip !== updatedInvoice.buyerNip ||
+          originalInvoice.buyerName !== updatedInvoice.buyerName
+        )) {
+        try {
+          await saveBuyerMapping(updatedInvoice.buyerNip, updatedInvoice.buyerName);
+          toast({ title: "Zapisano nabywcę", description: `NIP ${updatedInvoice.buyerNip} → ${updatedInvoice.buyerName}` });
+        } catch (e) {
+          console.error('❌ Error saving buyer mapping:', e);
+        }
       }
 
       // Update invoice in Firebase
