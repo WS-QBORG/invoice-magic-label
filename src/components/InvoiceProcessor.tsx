@@ -209,15 +209,38 @@ export function InvoiceProcessor() {
       {
         const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
         const isNipMissing = !finalBuyerNip || finalBuyerNip.trim() === '' || finalBuyerNip.replace(/\D/g, '').length !== 10;
+        console.log('🔍 Buyer lookup debug:', { 
+          vendorName, 
+          finalBuyerNip, 
+          isNipMissing,
+          processedInvoicesCount: processedInvoices.length,
+          savedInvoicesCount: savedInvoices.length
+        });
+        
         if (isNipMissing && vendorName) {
+          // Log all vendors to debug matching
+          console.log('📋 Available vendors in processed:', processedInvoices.map(inv => ({ name: inv.vendorName, buyerNip: inv.buyerNip })));
+          console.log('📋 Available vendors in saved:', savedInvoices.slice(0, 5).map(inv => ({ name: inv.vendorName, buyerNip: inv.buyerNip })));
+          
           const lastInvoiceForVendor =
-            processedInvoices.find((inv) => norm(inv.vendorName) === norm(vendorName) && !!inv.buyerNip) ||
-            savedInvoices.find((inv) => norm(inv.vendorName) === norm(vendorName) && !!inv.buyerNip);
+            processedInvoices.find((inv) => {
+              const matches = norm(inv.vendorName) === norm(vendorName) && !!inv.buyerNip;
+              console.log(`🔄 Checking processed: "${inv.vendorName}" vs "${vendorName}" = ${matches}, buyerNip: ${inv.buyerNip}`);
+              return matches;
+            }) ||
+            savedInvoices.find((inv) => {
+              const matches = norm(inv.vendorName) === norm(vendorName) && !!inv.buyerNip;
+              if (matches) console.log(`✅ Found match in saved: "${inv.vendorName}" → buyer: ${inv.buyerName} (${inv.buyerNip})`);
+              return matches;
+            });
+            
           if (lastInvoiceForVendor) {
             buyerName = lastInvoiceForVendor.buyerName;
             finalBuyerNip = lastInvoiceForVendor.buyerNip;
             console.log('↩️ Reused buyer from history for vendor', vendorName, '→', { buyerName, buyerNip: finalBuyerNip });
             toast({ title: 'Użyto zapisanych danych nabywcy', description: `${lastInvoiceForVendor.buyerName} (${lastInvoiceForVendor.buyerNip})` });
+          } else {
+            console.log('❌ No previous buyer found for vendor:', vendorName);
           }
         }
       }
