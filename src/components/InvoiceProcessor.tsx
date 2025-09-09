@@ -339,6 +339,8 @@ export function InvoiceProcessor() {
       let sequentialNumber: string;
       let label: string;
       
+      console.log('🔍 NIP check:', { buyerNip, type: typeof buyerNip, trimmed: buyerNip?.trim() });
+      
       if (buyerNip === '8522482321') {
         const firstLetter = vendorName.charAt(0).toUpperCase();
         console.log('🏷️ Etykieta debug:', { buyerName, buyerNip, firstLetter, vendorName });
