@@ -685,94 +685,156 @@ export function InvoiceProcessor() {
    */
   const downloadAnnotatedInvoice = async (invoice: InvoiceData) => {
     try {
-      let pdfToAnnotate: File | undefined;
+      let fileToAnnotate: File | undefined;
       
       // First try to get file from storage
       if (invoice.fileName && fileStorage.has(invoice.fileName)) {
-        pdfToAnnotate = fileStorage.get(invoice.fileName);
+        fileToAnnotate = fileStorage.get(invoice.fileName);
       } 
       // Then check if selectedFile matches
       else if (selectedFile && selectedFile.name === invoice.fileName) {
-        pdfToAnnotate = selectedFile;
+        fileToAnnotate = selectedFile;
       } 
       // If no file available, show message
       else {
         toast({
           variant: "destructive",
           title: "Plik niedostępny",
-          description: "Aby pobrać opisaną fakturę, proszę ponownie wybrać oryginalny plik PDF"
+          description: "Aby pobrać opisaną fakturę, proszę ponownie wybrać oryginalny plik"
         });
         return;
       }
 
-      if (!pdfToAnnotate) return;
+      if (!fileToAnnotate) return;
 
-      // Check if file is PDF
-      if (pdfToAnnotate.type !== 'application/pdf') {
-        toast({
-          variant: "destructive", 
-          title: "Nieobsługiwany format",
-          description: "Dodawanie etykiet do obrazów (JPG/PNG) nie jest jeszcze obsługiwane. Funkcja działa tylko z plikami PDF."
-        });
-        return;
-      }
-
-      const arrayBuffer = await pdfToAnnotate.arrayBuffer();
-      const pdfDoc = await PDFDocument.load(arrayBuffer);
-      
-      // Get the first page
-      const pages = pdfDoc.getPages();
-      const firstPage = pages[0];
-      const { width, height } = firstPage.getSize();
-      
-      // Embed font
-      const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-      
-      // Prepare label text (use the complete label that includes client number if present)
       const labelText = invoice.label;
-      
-      // Add label to top right corner
-      firstPage.drawText(labelText, {
-        x: width - 200,
-        y: height - 30,
-        size: 12,
-        font: font,
-        color: rgb(0.8, 0, 0), // Red color
-      });
-      
-      // Add label to bottom right corner as backup
-      firstPage.drawText(labelText, {
-        x: width - 200,
-        y: 30,
-        size: 10,
-        font: font,
-        color: rgb(0.8, 0, 0), // Red color
-      });
-      
-      // Save the PDF
-      const pdfBytes = await pdfDoc.save();
-      
-      // Create download link
-      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${invoice.fileName?.replace('.pdf', '')}_opisana.pdf` || `faktura_${invoice.sequentialNumber}_opisana.pdf`;
-      link.click();
-      
-      // Clean up
-      URL.revokeObjectURL(url);
-      
+
+      // Handle PDF files
+      if (fileToAnnotate.type === 'application/pdf') {
+        const arrayBuffer = await fileToAnnotate.arrayBuffer();
+        const pdfDoc = await PDFDocument.load(arrayBuffer);
+        
+        // Get the first page
+        const pages = pdfDoc.getPages();
+        const firstPage = pages[0];
+        const { width, height } = firstPage.getSize();
+        
+        // Embed font
+        const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+        
+        // Add label to top right corner
+        firstPage.drawText(labelText, {
+          x: width - 200,
+          y: height - 30,
+          size: 12,
+          font: font,
+          color: rgb(0.8, 0, 0), // Red color
+        });
+        
+        // Add label to bottom right corner as backup
+        firstPage.drawText(labelText, {
+          x: width - 200,
+          y: 30,
+          size: 10,
+          font: font,
+          color: rgb(0.8, 0, 0), // Red color
+        });
+        
+        // Save the PDF
+        const pdfBytes = await pdfDoc.save();
+        
+        // Create download link
+        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `opisane_${invoice.fileName || 'faktura.pdf'}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+      } 
+      // Handle image files (JPG, PNG)
+      else if (fileToAnnotate.type.startsWith('image/')) {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const img = new Image();
+        
+        img.onload = () => {
+          // Set canvas size to image size
+          canvas.width = img.width;
+          canvas.height = img.height;
+          
+          // Draw the original image
+          ctx!.drawImage(img, 0, 0);
+          
+          // Set up text styling
+          const fontSize = Math.max(16, Math.min(img.width / 30, 24));
+          ctx!.font = `bold ${fontSize}px Arial`;
+          ctx!.fillStyle = '#CC0000'; // Red color
+          ctx!.strokeStyle = '#FFFFFF'; // White outline
+          ctx!.lineWidth = 2;
+          
+          // Measure text width
+          const textMetrics = ctx!.measureText(labelText);
+          const textWidth = textMetrics.width;
+          
+          // Position text in top right corner
+          const x = img.width - textWidth - 20;
+          const y = 40;
+          
+          // Draw text with outline
+          ctx!.strokeText(labelText, x, y);
+          ctx!.fillText(labelText, x, y);
+          
+          // Also add at bottom right as backup
+          const bottomY = img.height - 20;
+          ctx!.strokeText(labelText, x, bottomY);
+          ctx!.fillText(labelText, x, bottomY);
+          
+          // Convert canvas to blob and download
+          canvas.toBlob((blob) => {
+            if (blob) {
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement('a');
+              link.href = url;
+              const extension = fileToAnnotate!.type.includes('png') ? 'png' : 'jpg';
+              link.download = `opisane_${invoice.fileName || `faktura.${extension}`}`;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              URL.revokeObjectURL(url);
+            }
+          }, fileToAnnotate.type);
+        };
+        
+        // Load image from file
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          img.src = e.target?.result as string;
+        };
+        reader.readAsDataURL(fileToAnnotate);
+        
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Nieobsługiwany format", 
+          description: "Obsługiwane formaty: PDF, JPG, PNG"
+        });
+        return;
+      }
+
       toast({
-        title: "Faktura opisana",
-        description: `Pobrano plik z etykietą: ${labelText}`
+        title: "Pobieranie opisanej faktury",
+        description: "Plik z etykietą zostanie pobrany za chwilę"
       });
-      
+
     } catch (error) {
       console.error('Error annotating PDF:', error);
       toast({
         variant: "destructive",
-        title: "Błąd opisywania",
+        title: "Błąd przy opisywaniu",
         description: "Nie udało się opisać faktury"
       });
     }
