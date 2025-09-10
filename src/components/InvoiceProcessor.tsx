@@ -771,7 +771,7 @@ export function InvoiceProcessor() {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `opisane_${invoice.fileName || 'faktura.pdf'}`;
+        link.download = `${invoice.label}.pdf`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -823,7 +823,7 @@ export function InvoiceProcessor() {
               const link = document.createElement('a');
               link.href = url;
               const extension = fileToAnnotate!.type.includes('png') ? 'png' : 'jpg';
-              link.download = `opisane_${invoice.fileName || `faktura.${extension}`}`;
+              link.download = `${invoice.label}.${extension}`;
               document.body.appendChild(link);
               link.click();
               document.body.removeChild(link);
