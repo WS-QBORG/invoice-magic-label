@@ -379,12 +379,14 @@ export function InvoiceProcessor() {
       });
       
       if (normalizedNip === '8522482321') {
-        const firstLetter = (vendorName?.trim()?.charAt(0) || '').toUpperCase() || 'X';
+        // Extract first alphabetic character from vendor name
+        const firstLetter = (vendorName?.trim()?.match(/[A-ZĄĆĘŁŃÓŚŹŻ]/i)?.[0] || 'X').toUpperCase();
         console.log('🏷️ Etykieta debug:', { buyerName, buyerNip, normalizedNip, firstLetter, vendorName });
         sequentialNumber = `KJ_${firstLetter}_${String(number).padStart(4, '0')}`;
         label = clientNumber ? `${group};${mpk};${sequentialNumber};${clientNumber}` : `${group};${mpk};${sequentialNumber}`;
       } else if (normalizedNip === '8522669232') {
-        const firstLetter = (vendorName?.trim()?.charAt(0) || '').toUpperCase() || 'X';
+        // Extract first alphabetic character from vendor name
+        const firstLetter = (vendorName?.trim()?.match(/[A-ZĄĆĘŁŃÓŚŹŻ]/i)?.[0] || 'X').toUpperCase();
         sequentialNumber = `KT_${firstLetter}_${String(number).padStart(4, '0')}`;
         label = clientNumber ? `${group};${mpk};${sequentialNumber};${clientNumber}` : `${group};${mpk};${sequentialNumber}`;
       } else {
