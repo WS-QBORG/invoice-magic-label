@@ -85,11 +85,105 @@ export async function extractTextFromPdf(file: File): Promise<string> {
  */
 export async function extractTextFromImage(file: File): Promise<string> {
   try {
-    console.log('Extracting text from image using OCR...');
-    const { data: { text } } = await Tesseract.recognize(file, 'pol', {
-      logger: m => console.log(m)
+    console.log('Extracting text from image using enhanced OCR...');
+
+    // Load image into canvas
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = reject as any;
+      i.src = URL.createObjectURL(file);
     });
-    return text;
+
+    const baseCanvas = document.createElement('canvas');
+    const ctx = baseCanvas.getContext('2d', { willReadFrequently: true } as any) as CanvasRenderingContext2D | null;
+    if (!ctx) throw new Error('Could not get canvas context');
+
+    // Resize keeping aspect ratio (up to ~2000px on the long edge)
+    const maxDim = 2000;
+    let w = img.naturalWidth;
+    let h = img.naturalHeight;
+    if ((w >= h && w > maxDim) || (h > w && h > maxDim)) {
+      if (w >= h) {
+        h = Math.round(h * (maxDim / w));
+        w = maxDim;
+      } else {
+        w = Math.round(w * (maxDim / h));
+        h = maxDim;
+      }
+    }
+    baseCanvas.width = w;
+    baseCanvas.height = h;
+    ctx.drawImage(img, 0, 0, w, h);
+
+    // Simple enhancement: grayscale + adaptive thresholding (binarization)
+    const enhance = (input: HTMLCanvasElement) => {
+      const c = document.createElement('canvas');
+      c.width = input.width;
+      c.height = input.height;
+const ictx = c.getContext('2d', { willReadFrequently: true } as any) as CanvasRenderingContext2D;
+      ictx.drawImage(input, 0, 0);
+      const imageData = ictx.getImageData(0, 0, c.width, c.height);
+      const data = imageData.data;
+
+      let sum = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i], g = data[i + 1], b = data[i + 2];
+        const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+        data[i] = data[i + 1] = data[i + 2] = gray;
+        sum += gray;
+      }
+      const mean = sum / (data.length / 4);
+      const threshold = Math.min(225, Math.max(95, mean * 0.95));
+      for (let i = 0; i < data.length; i += 4) {
+        const v = data[i];
+        const bin = v > threshold ? 255 : 0;
+        data[i] = data[i + 1] = data[i + 2] = bin;
+        data[i + 3] = 255;
+      }
+      ictx.putImageData(imageData, 0, 0);
+      return c;
+    };
+
+    const rotate = (input: HTMLCanvasElement, angle: number) => {
+      const rad = (angle * Math.PI) / 180;
+      const sin = Math.abs(Math.sin(rad));
+      const cos = Math.abs(Math.cos(rad));
+      const w = input.width, h = input.height;
+      const out = document.createElement('canvas');
+      out.width = Math.round(w * cos + h * sin);
+      out.height = Math.round(w * sin + h * cos);
+const octx = out.getContext('2d') as CanvasRenderingContext2D;
+      octx.translate(out.width / 2, out.height / 2);
+      octx.rotate(rad);
+      octx.drawImage(input, -w / 2, -h / 2);
+      return out;
+    };
+
+    const run = async (canvas: HTMLCanvasElement) => {
+      const result = await Tesseract.recognize(canvas, 'pol+eng', {
+        tessedit_pageseg_mode: '6',
+        preserve_interword_spaces: '1',
+        logger: (m: any) => {
+          if (m.status === 'recognizing text') {
+            console.log(`OCR progress: ${Math.round((m.progress || 0) * 100)}%`);
+          }
+        }
+      } as any);
+      const conf = (result?.data as any)?.confidence ?? 0;
+      return { text: result?.data?.text ?? '', confidence: conf };
+    };
+
+    const enhanced = enhance(baseCanvas);
+    const angles = [0, 90, 180, 270];
+    let best = { text: '', confidence: -1 };
+    for (const ang of angles) {
+      const rotated = ang === 0 ? enhanced : rotate(enhanced, ang);
+      const r = await run(rotated);
+      if (r.confidence > best.confidence) best = r;
+    }
+
+    return best.text;
   } catch (error) {
     console.error('Error extracting text from image:', error);
     throw new Error('Nie udało się wyodrębnić tekstu z obrazu');
@@ -103,46 +197,89 @@ export async function extractTextFromImage(file: File): Promise<string> {
  */
 async function extractTextFromScannedPdf(pdf: PdfJsDocument): Promise<string> {
   let fullText = '';
-  
+
   for (let i = 1; i <= pdf.numPages; i++) {
     try {
       const page = await pdf.getPage(i);
       const viewport = page.getViewport({ scale: 2.0 });
-      
-      // Create canvas to render PDF page
+
+      // Render PDF page to canvas
       const canvas = document.createElement('canvas');
-      const context = canvas.getContext('2d');
+      const context = canvas.getContext('2d', { willReadFrequently: true } as any) as CanvasRenderingContext2D | null;
       canvas.height = viewport.height;
       canvas.width = viewport.width;
-      
-      if (!context) {
-        throw new Error('Could not get canvas context');
+      if (!context) throw new Error('Could not get canvas context');
+
+      await page.render({ canvasContext: context, viewport }).promise;
+
+      // Enhancement helpers
+      const enhance = (input: HTMLCanvasElement) => {
+        const c = document.createElement('canvas');
+        c.width = input.width;
+        c.height = input.height;
+        const ictx = c.getContext('2d', { willReadFrequently: true } as any) as CanvasRenderingContext2D;
+        ictx.drawImage(input, 0, 0);
+        const imageData = ictx.getImageData(0, 0, c.width, c.height);
+        const data = imageData.data;
+        let sum = 0;
+        for (let i = 0; i < data.length; i += 4) {
+          const r = data[i], g = data[i + 1], b = data[i + 2];
+          const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+          data[i] = data[i + 1] = data[i + 2] = gray;
+          sum += gray;
+        }
+        const mean = sum / (data.length / 4);
+        const threshold = Math.min(225, Math.max(95, mean * 0.95));
+        for (let i = 0; i < data.length; i += 4) {
+          const v = data[i];
+          const bin = v > threshold ? 255 : 0;
+          data[i] = data[i + 1] = data[i + 2] = bin;
+          data[i + 3] = 255;
+        }
+        ictx.putImageData(imageData, 0, 0);
+        return c;
+      };
+
+      const rotate = (input: HTMLCanvasElement, angle: number) => {
+        const rad = (angle * Math.PI) / 180;
+        const sin = Math.abs(Math.sin(rad));
+        const cos = Math.abs(Math.cos(rad));
+        const w = input.width, h = input.height;
+        const out = document.createElement('canvas');
+        out.width = Math.round(w * cos + h * sin);
+        out.height = Math.round(w * sin + h * cos);
+        const octx = out.getContext('2d') as CanvasRenderingContext2D;
+        octx.translate(out.width / 2, out.height / 2);
+        octx.rotate(rad);
+        octx.drawImage(input, -w / 2, -h / 2);
+        return out;
+      };
+
+      const run = async (c: HTMLCanvasElement) => {
+        const result = await Tesseract.recognize(c, 'pol+eng', {
+          tessedit_pageseg_mode: '6',
+          preserve_interword_spaces: '1',
+          logger: (m: any) => m && m.status === 'recognizing text' && console.log(`Page ${i} OCR: ${Math.round((m.progress || 0) * 100)}%`)
+        } as any);
+        const conf = (result?.data as any)?.confidence ?? 0;
+        return { text: result?.data?.text ?? '', confidence: conf };
+      };
+
+      const enhanced = enhance(canvas);
+      const angles = [0, 90, 180, 270];
+      let best = { text: '', confidence: -1 };
+      for (const ang of angles) {
+        const rotated = ang === 0 ? enhanced : rotate(enhanced, ang);
+        const r = await run(rotated);
+        if (r.confidence > best.confidence) best = r;
       }
-      
-      // Render page to canvas
-      await page.render({
-        canvasContext: context,
-        viewport: viewport
-      }).promise;
-      
-      // Convert canvas to blob and run OCR
-      const blob = await new Promise<Blob>((resolve, reject) => {
-        canvas.toBlob((blob) => {
-          if (blob) resolve(blob);
-          else reject(new Error('Failed to create blob'));
-        }, 'image/png');
-      });
-      
-      const { data: { text } } = await Tesseract.recognize(blob, 'pol', {
-        logger: m => console.log(`Page ${i}:`, m)
-      });
-      
-      fullText += text + '\n';
+
+      fullText += best.text + '\n';
     } catch (error) {
       console.error(`Error processing page ${i} with OCR:`, error);
     }
   }
-  
+
   return fullText;
 }
 
