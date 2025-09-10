@@ -88,12 +88,16 @@ export async function extractTextFromImage(file: File): Promise<string> {
     console.log('Extracting text from image using enhanced OCR...');
 
     // Load image into canvas
-    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const i = new Image();
-      i.onload = () => resolve(i);
-      i.onerror = reject as any;
-      i.src = URL.createObjectURL(file);
-    });
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const i = new Image();
+        const url = URL.createObjectURL(file);
+        i.onload = () => {
+          resolve(i);
+          URL.revokeObjectURL(url);
+        };
+        i.onerror = reject as any;
+        i.src = url;
+      });
 
     const baseCanvas = document.createElement('canvas');
     const ctx = baseCanvas.getContext('2d', { willReadFrequently: true } as any) as CanvasRenderingContext2D | null;
@@ -160,27 +164,37 @@ const octx = out.getContext('2d') as CanvasRenderingContext2D;
       return out;
     };
 
-    const run = async (canvas: HTMLCanvasElement) => {
-      const result = await Tesseract.recognize(canvas, 'pol+eng', {
-        tessedit_pageseg_mode: '6',
-        preserve_interword_spaces: '1',
-        logger: (m: any) => {
-          if (m.status === 'recognizing text') {
-            console.log(`OCR progress: ${Math.round((m.progress || 0) * 100)}%`);
+      let lastOverallProgress = -1;
+      const run = async (canvas: HTMLCanvasElement, angleIndex: number, totalAngles: number) => {
+        const result = await Tesseract.recognize(canvas, 'pol+eng', {
+          tessedit_pageseg_mode: '6',
+          preserve_interword_spaces: '1',
+          logger: (m: any) => {
+            if (m && m.status === 'recognizing text') {
+              const prog = Math.max(0, Math.min(1, m.progress || 0));
+              const overall = Math.round(((angleIndex + prog) / totalAngles) * 100);
+              if (overall > lastOverallProgress) {
+                console.log(`OCR progress: ${overall}%`);
+                lastOverallProgress = overall;
+              }
+            }
           }
-        }
-      } as any);
-      const conf = (result?.data as any)?.confidence ?? 0;
-      return { text: result?.data?.text ?? '', confidence: conf };
-    };
+        } as any);
+        const conf = (result?.data as any)?.confidence ?? 0;
+        return { text: result?.data?.text ?? '', confidence: conf };
+      };
 
     const enhanced = enhance(baseCanvas);
     const angles = [0, 90, 180, 270];
     let best = { text: '', confidence: -1 };
-    for (const ang of angles) {
+    for (let idx = 0; idx < angles.length; idx++) {
+      const ang = angles[idx];
       const rotated = ang === 0 ? enhanced : rotate(enhanced, ang);
-      const r = await run(rotated);
+      const r = await run(rotated, idx, angles.length);
       if (r.confidence > best.confidence) best = r;
+      if (r.confidence >= 70 && /faktura|nabywca|sprzedawca|nip/i.test(r.text)) {
+        break; // early stop on good confidence and keywords
+      }
     }
 
     return best.text;
