@@ -3,6 +3,32 @@ import { ref, get, set, push, child, remove } from 'firebase/database';
 import { database, ensureAuthReady } from '@/lib/firebase';
 import { InvoiceData } from '@/types/invoice';
 
+// Remove undefined values recursively to satisfy Firebase RTDB constraints
+function sanitizeForFirebase<T>(value: T): T {
+  const _sanitize = (val: any): any => {
+    if (val === undefined) return undefined; // caller will strip keys with undefined
+    if (val === null) return null;
+    if (Array.isArray(val)) {
+      return val
+        .map((item) => _sanitize(item))
+        .filter((item) => item !== undefined);
+    }
+    if (typeof val === 'object') {
+      const result: Record<string, any> = {};
+      for (const [k, v] of Object.entries(val)) {
+        const sanitized = _sanitize(v);
+        if (sanitized !== undefined) {
+          result[k] = sanitized;
+        }
+      }
+      return result;
+    }
+    if (typeof val === 'number' && Number.isNaN(val)) return null;
+    return val;
+  };
+  return _sanitize(value);
+}
+
 /**
  * Hook for managing invoice storage in Firebase
  * Handles saving, loading, updating and deleting processed invoices
@@ -55,11 +81,11 @@ export function useInvoiceStorage() {
       const invoicesRef = ref(database, 'processedInvoices');
       const newInvoiceRef = push(invoicesRef);
       
-      const invoiceToSave = {
+      const invoiceToSave = sanitizeForFirebase({
         ...invoice,
         id: newInvoiceRef.key,
         savedAt: Date.now()
-      };
+      }) as InvoiceData;
       
       await set(newInvoiceRef, invoiceToSave);
       
@@ -88,11 +114,11 @@ export function useInvoiceStorage() {
       await ensureAuthReady();
       
       const invoiceRef = ref(database, `processedInvoices/${invoiceId}`);
-      const invoiceToUpdate = {
+      const invoiceToUpdate = sanitizeForFirebase({
         ...updatedInvoice,
         id: invoiceId,
         lastModified: Date.now()
-      };
+      }) as InvoiceData;
       
       await set(invoiceRef, invoiceToUpdate);
       
