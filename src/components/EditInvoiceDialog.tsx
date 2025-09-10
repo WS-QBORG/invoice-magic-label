@@ -96,20 +96,31 @@ export function EditInvoiceDialog({ isOpen, onClose, onSave, invoice }: EditInvo
       
       // Auto-update buyer name when NIP changes
       if (field === 'buyerNip' && value) {
-        console.log('🔍 Buyer NIP change debug:', { 
-          enteredNip: value, 
-          availableMappings: Object.keys(buyerMappings),
-          hasMapping: !!buyerMappings[value],
-          mappingData: buyerMappings[value]
+        const clean = value.replace(/\D/g, '');
+        const mapping =
+          Object.values(buyerMappings).find(m => ((m as any)?.nip || '').replace(/\D/g, '') === clean) ||
+          (buyerMappings as any)[clean];
+        console.log('🔍 Buyer NIP change debug:', {
+          enteredNip: value,
+          clean,
+          found: !!mapping,
+          mapping
         });
-        
-        if (buyerMappings[value]) {
-          console.log('🔄 Auto-updating buyer name:', { 
-            nip: value, 
-            oldName: updated.buyerName, 
-            newName: buyerMappings[value].name 
+        const canonicalByNip: Record<string, string> = {
+          '8522482321': 'TWÓJ INSTALATOR PIOTR MURAWSKI',
+          '8522669232': 'QBORG SPÓŁKA'
+        };
+        let resolvedName = (mapping as any)?.name as string | undefined;
+        if (!resolvedName || resolvedName.toLowerCase().includes('nie znaleziono')) {
+          resolvedName = canonicalByNip[clean] || resolvedName;
+        }
+        if (resolvedName) {
+          console.log('🔄 Auto-updating buyer name:', {
+            nip: clean,
+            oldName: updated.buyerName,
+            newName: resolvedName
           });
-          updated.buyerName = buyerMappings[value].name;
+          updated.buyerName = resolvedName;
         }
       }
       
