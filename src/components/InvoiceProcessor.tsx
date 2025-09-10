@@ -332,14 +332,31 @@ export function InvoiceProcessor() {
     paymentMethod?: string
   ) => {
     try {
+      console.log('🚀 finishProcessing started:', { 
+        vendorName, 
+        buyerNip, 
+        mpk, 
+        group,
+        vendorNameLength: vendorName?.length,
+        buyerNipLength: buyerNip?.length 
+      });
+      
       // Generate sequential number for this buyer NIP + MPK + Group combination
+      console.log('📊 Calling getNextSequentialNumber...');
       const { number, year } = await getNextSequentialNumber(buyerNip, mpk, group, vendorName);
+      console.log('📊 Got counter result:', { number, year });
       
       // Special formatting for buyer NIP 8522482321
       let sequentialNumber: string;
       let label: string;
       
-      console.log('🔍 NIP check:', { buyerNip, type: typeof buyerNip, trimmed: buyerNip?.trim() });
+      console.log('🔍 NIP check:', { 
+        buyerNip, 
+        type: typeof buyerNip, 
+        trimmed: buyerNip?.trim(),
+        equals8522482321: buyerNip === '8522482321',
+        strictEquals: buyerNip === '8522482321'
+      });
       
       if (buyerNip === '8522482321') {
         const firstLetter = vendorName.charAt(0).toUpperCase();
