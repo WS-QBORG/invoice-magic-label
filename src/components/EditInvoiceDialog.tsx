@@ -23,6 +23,9 @@ export function EditInvoiceDialog({ isOpen, onClose, onSave, invoice }: EditInvo
   const [editedInvoice, setEditedInvoice] = useState<InvoiceData | null>(null);
   const [saving, setSaving] = useState(false);
   const { buyerMappings } = useBuyerNipMapping();
+  
+  // Debug: Log buyerMappings when component renders
+  console.log('🏢 EditInvoiceDialog - buyerMappings:', buyerMappings);
   const { findVendorMappingByNip } = useVendorNipToMapping();
   const { findVendorNameByNip } = useVendorNipMapping();
 
@@ -88,6 +91,8 @@ export function EditInvoiceDialog({ isOpen, onClose, onSave, invoice }: EditInvo
 
   const handleFieldChange = (field: keyof InvoiceData, value: string) => {
     if (!editedInvoice) return;
+    
+    console.log('🔧 Field change:', { field, value, currentEditedInvoice: editedInvoice });
     
     setEditedInvoice(prev => {
       if (!prev) return null;
