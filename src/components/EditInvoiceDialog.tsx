@@ -36,20 +36,29 @@ export function EditInvoiceDialog({ isOpen, onClose, onSave, invoice }: EditInvo
     try {
       // Update label when MPK or Group changes - with special formatting for specific NIPs
       let updatedLabel: string;
+      let updatedSequentialNumber = editedInvoice.sequentialNumber;
       
       // Use same logic as InvoiceProcessor for special NIPs
       if (editedInvoice.buyerNip === '8522482321') {
-        const firstLetter = editedInvoice.vendorName.charAt(0).toUpperCase();
-        const sequentialNumber = `KJ_${firstLetter}_${editedInvoice.sequentialNumber.split('_').slice(2).join('_') || '0000'}`;
+        const firstLetter = (editedInvoice.vendorName?.trim()?.charAt(0) || '').toUpperCase() || 'X';
+        // Extract the number part from existing sequential number
+        const numberPart = editedInvoice.sequentialNumber.includes('KJ_') 
+          ? editedInvoice.sequentialNumber.split('_').slice(2).join('_')
+          : editedInvoice.sequentialNumber.split('_').pop() || '0000';
+        updatedSequentialNumber = `KJ_${firstLetter}_${numberPart}`;
         updatedLabel = editedInvoice.clientNumber 
-          ? `${editedInvoice.group};${editedInvoice.mpk};${sequentialNumber};${editedInvoice.clientNumber}`
-          : `${editedInvoice.group};${editedInvoice.mpk};${sequentialNumber}`;
+          ? `${editedInvoice.group};${editedInvoice.mpk};${updatedSequentialNumber};${editedInvoice.clientNumber}`
+          : `${editedInvoice.group};${editedInvoice.mpk};${updatedSequentialNumber}`;
       } else if (editedInvoice.buyerNip === '8522669232') {
-        const firstLetter = editedInvoice.vendorName.charAt(0).toUpperCase();
-        const sequentialNumber = `KT_${firstLetter}_${editedInvoice.sequentialNumber.split('_').slice(2).join('_') || '0000'}`;
+        const firstLetter = (editedInvoice.vendorName?.trim()?.charAt(0) || '').toUpperCase() || 'X';
+        // Extract the number part from existing sequential number
+        const numberPart = editedInvoice.sequentialNumber.includes('KT_') 
+          ? editedInvoice.sequentialNumber.split('_').slice(2).join('_')
+          : editedInvoice.sequentialNumber.split('_').pop() || '0000';
+        updatedSequentialNumber = `KT_${firstLetter}_${numberPart}`;
         updatedLabel = editedInvoice.clientNumber 
-          ? `${editedInvoice.group};${editedInvoice.mpk};${sequentialNumber};${editedInvoice.clientNumber}`
-          : `${editedInvoice.group};${editedInvoice.mpk};${sequentialNumber}`;
+          ? `${editedInvoice.group};${editedInvoice.mpk};${updatedSequentialNumber};${editedInvoice.clientNumber}`
+          : `${editedInvoice.group};${editedInvoice.mpk};${updatedSequentialNumber}`;
       } else {
         // Standard formatting for other buyers
         updatedLabel = editedInvoice.clientNumber 
@@ -59,6 +68,7 @@ export function EditInvoiceDialog({ isOpen, onClose, onSave, invoice }: EditInvo
       
       const finalInvoice = {
         ...editedInvoice,
+        sequentialNumber: updatedSequentialNumber,
         label: updatedLabel,
         lastModified: Date.now()
       };
