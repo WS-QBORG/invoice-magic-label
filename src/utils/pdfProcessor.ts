@@ -321,6 +321,8 @@ async function loadPdfJs(): Promise<void> {
  * @returns Vendor name or "Nie znaleziono"
  */
 export function extractVendorName(text: string): string {
+  console.log('🔍 Raw OCR text for vendor extraction:', text.substring(0, 500));
+  
   const isBad = (s: string) => {
     const t = (s || '').trim();
     if (!t || t.length < 2) return true;
@@ -336,6 +338,7 @@ export function extractVendorName(text: string): string {
     const idx = m.index ?? -1;
     if (idx < 0) return undefined;
     const after = text.slice(idx).split(/\n/).slice(1, 6).map(l => l.trim()).filter(Boolean);
+    console.log('🔍 Lines after label:', after);
     for (const line of after) {
       if (!isBad(line)) return line;
     }
@@ -346,9 +349,13 @@ export function extractVendorName(text: string): string {
   let m = text.match(/Sprzedawca:?\s*\n?([^\n]+)/i);
   if (m) {
     const cand = m[1].trim();
+    console.log('🔍 Found vendor candidate after "Sprzedawca":', cand);
     if (!isBad(cand) && !cand.toLowerCase().includes('nabywca')) return cand;
     const next = findAfterLabel(/Sprzedawca:?/i);
-    if (next) return next;
+    if (next) {
+      console.log('🔍 Found vendor from lines after:', next);
+      return next;
+    }
   }
 
   // Try alternative labels
@@ -357,6 +364,7 @@ export function extractVendorName(text: string): string {
     const mm = text.match(new RegExp(lab.source + "\\s*\\n?([^\\n]+)", 'i'));
     if (mm) {
       const cand = mm[1].trim();
+      console.log('🔍 Found vendor candidate from alternative label:', cand);
       if (!isBad(cand)) return cand;
       const next = findAfterLabel(lab);
       if (next) return next;
@@ -372,19 +380,26 @@ export function extractVendorName(text: string): string {
   })();
   const searchArea = splitIdx >= 0 ? text.slice(0, splitIdx) : text.slice(0, Math.min(500, text.length));
   const lines = searchArea.split(/\n/).map(l => l.trim()).filter(l => l.length > 1);
+  
+  console.log('🔍 Searching vendor in header lines:', lines.slice(0, 8));
 
   for (let i = 0; i < Math.min(12, lines.length); i++) {
     const line = lines[i];
     if (isBad(line)) continue;
     if (/sp\.?\s*z\s*o\.?o\.?/i.test(line) || /s\.a\./i.test(line) || /ltd/i.test(line) || /sp\.\s*j\./i.test(line) || /spółka/i.test(line) || /przedsiębiorstwo/i.test(line) || /ipos/i.test(line) || /^[A-ZĄĆĘŁŃÓŚŹŻ][A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż0-9 &"'().-]{2,}$/.test(line)) {
+      console.log('🔍 Found vendor via company pattern:', line);
       return line.trim();
     }
   }
 
   for (const line of lines) {
-    if (!isBad(line)) return line;
+    if (!isBad(line)) {
+      console.log('🔍 Fallback vendor candidate:', line);
+      return line;
+    }
   }
 
+  console.log('⚠️ No vendor found, returning default');
   return 'Nie znaleziono';
 }
 
@@ -394,6 +409,8 @@ export function extractVendorName(text: string): string {
  * @returns Buyer name or "Nie znaleziono"
  */
 export function extractBuyerName(text: string): string {
+  console.log('🔍 Extracting buyer name from text...');
+  
   const isBad = (s: string) => {
     const t = (s || '').trim();
     if (!t || t.length < 2) return true;
@@ -407,6 +424,7 @@ export function extractBuyerName(text: string): string {
     const idx = m.index ?? -1;
     if (idx < 0) return undefined;
     const after = text.slice(idx).split(/\n/).slice(1, 7).map(l => l.trim()).filter(Boolean);
+    console.log('🔍 Lines after buyer label:', after);
     for (const line of after) {
       if (!isBad(line)) return line;
     }
@@ -417,15 +435,20 @@ export function extractBuyerName(text: string): string {
   let m = text.match(/Nabywca:?\s*\n?([^\n]+)/i);
   if (m) {
     const cand = m[1].trim();
+    console.log('🔍 Found buyer candidate after "Nabywca":', cand);
     if (!isBad(cand)) return cand;
     const next = findAfter(/Nabywca:?/i);
-    if (next) return next;
+    if (next) {
+      console.log('🔍 Found buyer from lines after:', next);
+      return next;
+    }
   }
 
   // Odbiorca
   m = text.match(/Odbiorca:?\s*\n?([^\n]+)/i);
   if (m) {
     const cand = m[1].trim();
+    console.log('🔍 Found buyer candidate after "Odbiorca":', cand);
     if (!isBad(cand)) return cand;
     const next = findAfter(/Odbiorca:?/i);
     if (next) return next;
@@ -441,10 +464,12 @@ export function extractBuyerName(text: string): string {
     const altMatch = text.match(pattern);
     if (altMatch) {
       const cand = altMatch[1].trim();
+      console.log('🔍 Found buyer via pattern:', cand);
       if (!isBad(cand)) return cand;
     }
   }
 
+  console.log('⚠️ No buyer found, returning default');
   return 'Nie znaleziono';
 }
 
@@ -523,6 +548,8 @@ export function extractBuyerNip(text: string): string {
  * @returns Invoice number or "Nieznany"
  */
 export function extractInvoiceNumber(text: string): string {
+  console.log('🔍 Extracting invoice number from text...');
+  
   // Look for patterns like FZ 328/01/2023 or FA/2341/6/2025/R
   const patterns = [
     /([A-Z]{1,3}[/\s]*\d+[/-]\d+[/-]\d{2,4}[/-]?[A-Z]?)/,
@@ -532,10 +559,13 @@ export function extractInvoiceNumber(text: string): string {
   for (const pattern of patterns) {
     const match = text.match(pattern);
     if (match) {
-      return match[1].replace(/\s+/g, ' ').trim();
+      const result = match[1].replace(/\s+/g, ' ').trim();
+      console.log('🔍 Found invoice number:', result);
+      return result;
     }
   }
   
+  console.log('⚠️ No invoice number found, returning default');
   return 'Nieznany';
 }
 
