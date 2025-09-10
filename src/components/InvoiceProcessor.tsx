@@ -208,7 +208,7 @@ export function InvoiceProcessor() {
 
       // If buyer data is missing, try to reuse last saved buyer for this vendor
       {
-        const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
+        const norm = (s: string | undefined) => s ? s.toLowerCase().replace(/\s+/g, ' ').trim() : '';
         const isNipMissing = !finalBuyerNip || finalBuyerNip.trim() === '' || finalBuyerNip.replace(/\D/g, '').length !== 10;
         console.log('🔍 Buyer lookup debug:', { 
           vendorName, 

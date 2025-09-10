@@ -65,7 +65,8 @@ export function useBuyerNipMapping() {
   /**
    * Normalize text for pattern matching
    */
-  const normalizeText = (text: string): string => {
+  const normalizeText = (text: string | undefined): string => {
+    if (!text) return '';
     return text.toLowerCase()
       .replace(/ą/g, 'a')
       .replace(/ć/g, 'c')

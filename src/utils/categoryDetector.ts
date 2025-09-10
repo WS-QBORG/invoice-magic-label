@@ -441,6 +441,14 @@ const VENDOR_SPECIFIC_RULES: Record<string, { mpk: string; group: string; descri
  * Detect category based on vendor-specific rules
  */
 export function detectVendorSpecificCategory(vendorName: string): CategoryMatch {
+  if (!vendorName) return {
+    detected: false,
+    mpk: '',
+    group: '',
+    description: '',
+    confidence: 0
+  };
+  
   const normalized = vendorName.toLowerCase();
   
   for (const [key, mapping] of Object.entries(VENDOR_SPECIFIC_RULES)) {
@@ -468,7 +476,7 @@ export function detectVendorSpecificCategory(vendorName: string): CategoryMatch 
  * General category detection based on content analysis
  */
 export function detectInvoiceCategory(vendorName: string, invoiceText: string): CategoryMatch {
-  const searchText = (vendorName + ' ' + invoiceText).toLowerCase();
+  const searchText = ((vendorName || '') + ' ' + (invoiceText || '')).toLowerCase();
   
   let bestMatch: CategoryMatch = {
     detected: false,

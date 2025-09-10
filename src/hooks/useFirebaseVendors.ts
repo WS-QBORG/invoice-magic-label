@@ -46,10 +46,12 @@ export function useFirebaseVendors() {
    * @param vendorName - Name to search for
    */
   const findVendorMapping = (vendorName: string): VendorMapping | null => {
+    if (!vendorName) return null;
     const normalized = vendorName.toLowerCase().replace(/[^a-z0-9]/g, '');
     
     // First try exact match
     for (const [key, vendor] of Object.entries(vendors)) {
+      if (!vendor?.name) continue;
       const vendorNormalized = vendor.name.toLowerCase().replace(/[^a-z0-9]/g, '');
       if (vendorNormalized === normalized) {
         return vendor;
@@ -58,6 +60,7 @@ export function useFirebaseVendors() {
 
     // Then try partial match
     for (const [key, vendor] of Object.entries(vendors)) {
+      if (!vendor?.name) continue;
       const vendorNormalized = vendor.name.toLowerCase().replace(/[^a-z0-9]/g, '');
       if (normalized.includes(vendorNormalized) || vendorNormalized.includes(normalized)) {
         return vendor;
