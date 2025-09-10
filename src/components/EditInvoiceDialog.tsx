@@ -95,13 +95,22 @@ export function EditInvoiceDialog({ isOpen, onClose, onSave, invoice }: EditInvo
       const updated = { ...prev, [field]: value };
       
       // Auto-update buyer name when NIP changes
-      if (field === 'buyerNip' && value && buyerMappings[value]) {
-        console.log('🔄 Auto-updating buyer name:', { 
-          nip: value, 
-          oldName: updated.buyerName, 
-          newName: buyerMappings[value].name 
+      if (field === 'buyerNip' && value) {
+        console.log('🔍 Buyer NIP change debug:', { 
+          enteredNip: value, 
+          availableMappings: Object.keys(buyerMappings),
+          hasMapping: !!buyerMappings[value],
+          mappingData: buyerMappings[value]
         });
-        updated.buyerName = buyerMappings[value].name;
+        
+        if (buyerMappings[value]) {
+          console.log('🔄 Auto-updating buyer name:', { 
+            nip: value, 
+            oldName: updated.buyerName, 
+            newName: buyerMappings[value].name 
+          });
+          updated.buyerName = buyerMappings[value].name;
+        }
       }
       
       // Auto-update vendor name, MPK, and group when vendor NIP changes
