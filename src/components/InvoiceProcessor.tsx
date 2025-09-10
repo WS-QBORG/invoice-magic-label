@@ -343,28 +343,31 @@ export function InvoiceProcessor() {
       
       // Generate sequential number for this buyer NIP + MPK + Group combination
       console.log('📊 Calling getNextSequentialNumber...');
-      const { number, year } = await getNextSequentialNumber(buyerNip, mpk, group, vendorName);
+      // Normalize NIP to digits-only to avoid mismatch (spaces/dashes)
+      const normalizedNip = (buyerNip || '').replace(/[^0-9]/g, '');
+      const { number, year } = await getNextSequentialNumber(normalizedNip, mpk, group, vendorName);
       console.log('📊 Got counter result:', { number, year });
       
-      // Special formatting for buyer NIP 8522482321
+      // Special formatting for specific buyer NIPs
       let sequentialNumber: string;
       let label: string;
       
       console.log('🔍 NIP check:', { 
         buyerNip, 
+        normalizedNip,
         type: typeof buyerNip, 
         trimmed: buyerNip?.trim(),
-        equals8522482321: buyerNip === '8522482321',
-        strictEquals: buyerNip === '8522482321'
+        equals8522482321: normalizedNip === '8522482321',
+        equals8522669232: normalizedNip === '8522669232'
       });
       
-      if (buyerNip === '8522482321') {
-        const firstLetter = vendorName.charAt(0).toUpperCase();
-        console.log('🏷️ Etykieta debug:', { buyerName, buyerNip, firstLetter, vendorName });
+      if (normalizedNip === '8522482321') {
+        const firstLetter = (vendorName?.trim()?.charAt(0) || '').toUpperCase() || 'X';
+        console.log('🏷️ Etykieta debug:', { buyerName, buyerNip, normalizedNip, firstLetter, vendorName });
         sequentialNumber = `KJ_${firstLetter}_${String(number).padStart(4, '0')}`;
         label = clientNumber ? `${group};${mpk};${sequentialNumber};${clientNumber}` : `${group};${mpk};${sequentialNumber}`;
-      } else if (buyerNip === '8522669232') {
-        const firstLetter = vendorName.charAt(0).toUpperCase();
+      } else if (normalizedNip === '8522669232') {
+        const firstLetter = (vendorName?.trim()?.charAt(0) || '').toUpperCase() || 'X';
         sequentialNumber = `KT_${firstLetter}_${String(number).padStart(4, '0')}`;
         label = clientNumber ? `${group};${mpk};${sequentialNumber};${clientNumber}` : `${group};${mpk};${sequentialNumber}`;
       } else {
