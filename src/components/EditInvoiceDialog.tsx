@@ -11,6 +11,7 @@ import { MPK_OPTIONS, GROUP_OPTIONS, type MPKOption, type GroupOption } from '@/
 import { useBuyerNipMapping } from '@/hooks/useBuyerNipMapping';
 import { useVendorNipToMapping } from '@/hooks/useVendorNipToMapping';
 import { useVendorNipMapping } from '@/hooks/useVendorNipMapping';
+import { useInvoiceCounters } from '@/hooks/useInvoiceCounters';
 
 interface EditInvoiceDialogProps {
   isOpen: boolean;
@@ -23,6 +24,7 @@ export function EditInvoiceDialog({ isOpen, onClose, onSave, invoice }: EditInvo
   const [editedInvoice, setEditedInvoice] = useState<InvoiceData | null>(null);
   const [saving, setSaving] = useState(false);
   const { buyerMappings } = useBuyerNipMapping();
+  const { getNextSequentialNumber } = useInvoiceCounters();
   
   // Debug: Log buyerMappings when component renders
   console.log('🏢 EditInvoiceDialog - buyerMappings:', buyerMappings);
@@ -99,7 +101,7 @@ export function EditInvoiceDialog({ isOpen, onClose, onSave, invoice }: EditInvo
       
       const updated = { ...prev, [field]: value };
       
-      // Auto-update buyer name when NIP changes
+      // Auto-update buyer name and sequential number when NIP changes
       if (field === 'buyerNip' && value) {
         const clean = value.replace(/\D/g, '');
         console.log('🔍 Buyer NIP change debug - full context:', {
@@ -137,6 +139,36 @@ export function EditInvoiceDialog({ isOpen, onClose, onSave, invoice }: EditInvo
           updated.buyerName = resolvedName;
         } else {
           console.log('❌ No name found for NIP:', clean);
+        }
+
+        // Generate new sequential number when switching to special NIP format
+        if (clean === '8522482321' || clean === '8522669232') {
+          console.log('🔄 Generating new sequential number for special NIP:', clean);
+          const firstLetter = (updated.vendorName?.trim()?.match(/[A-ZĄĆĘŁŃÓŚŹŻ]/i)?.[0] || 'X').toUpperCase();
+          
+          // Get next sequential number
+          getNextSequentialNumber(clean, updated.mpk, updated.group, updated.vendorName).then(({ number }) => {
+            const prefix = clean === '8522482321' ? 'KJ' : 'KT';
+            const newSequentialNumber = `${prefix}_${firstLetter}_${String(number).padStart(4, '0')}`;
+            
+            console.log('🔄 New sequential number generated:', {
+              prefix,
+              firstLetter,
+              number,
+              newSequentialNumber
+            });
+            
+            // Update the state with new sequential number
+            setEditedInvoice(current => {
+              if (!current) return null;
+              return {
+                ...current,
+                sequentialNumber: newSequentialNumber
+              };
+            });
+          }).catch(error => {
+            console.error('Error generating sequential number:', error);
+          });
         }
       }
       
