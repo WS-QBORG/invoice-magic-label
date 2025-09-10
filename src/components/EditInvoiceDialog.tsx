@@ -82,6 +82,11 @@ export function EditInvoiceDialog({ isOpen, onClose, onSave, invoice }: EditInvo
       
       // Auto-update buyer name when NIP changes
       if (field === 'buyerNip' && value && buyerMappings[value]) {
+        console.log('🔄 Auto-updating buyer name:', { 
+          nip: value, 
+          oldName: updated.buyerName, 
+          newName: buyerMappings[value].name 
+        });
         updated.buyerName = buyerMappings[value].name;
       }
       
