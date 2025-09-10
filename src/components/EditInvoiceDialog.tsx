@@ -97,23 +97,32 @@ export function EditInvoiceDialog({ isOpen, onClose, onSave, invoice }: EditInvo
       // Auto-update buyer name when NIP changes
       if (field === 'buyerNip' && value) {
         const clean = value.replace(/\D/g, '');
-        const mapping =
-          Object.values(buyerMappings).find(m => ((m as any)?.nip || '').replace(/\D/g, '') === clean) ||
-          (buyerMappings as any)[clean];
-        console.log('🔍 Buyer NIP change debug:', {
+        console.log('🔍 Buyer NIP change debug - full context:', {
           enteredNip: value,
           clean,
-          found: !!mapping,
-          mapping
+          buyerMappingsKeys: Object.keys(buyerMappings),
+          buyerMappingsValues: Object.values(buyerMappings),
+          directLookup: buyerMappings[clean],
+          directLookupByValue: (buyerMappings as any)[value]
         });
+        
+        // Try multiple lookup methods
+        let mapping = buyerMappings[clean] || 
+                     Object.values(buyerMappings).find(m => m?.nip?.replace(/\D/g, '') === clean);
+        
+        console.log('🔍 Mapping search result:', { mapping, found: !!mapping });
+        
         const canonicalByNip: Record<string, string> = {
-          '8522482321': 'TWÓJ INSTALATOR PIOTR MURAWSKI',
-          '8522669232': 'QBORG SPÓŁKA'
+          '8522482321': 'JDG Twój Instalator Piotr Murawski',
+          '8522669232': 'QBORG SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ'
         };
-        let resolvedName = (mapping as any)?.name as string | undefined;
+        
+        let resolvedName = mapping?.name;
         if (!resolvedName || resolvedName.toLowerCase().includes('nie znaleziono')) {
           resolvedName = canonicalByNip[clean] || resolvedName;
+          console.log('🔍 Using canonical name:', canonicalByNip[clean]);
         }
+        
         if (resolvedName) {
           console.log('🔄 Auto-updating buyer name:', {
             nip: clean,
@@ -121,6 +130,8 @@ export function EditInvoiceDialog({ isOpen, onClose, onSave, invoice }: EditInvo
             newName: resolvedName
           });
           updated.buyerName = resolvedName;
+        } else {
+          console.log('❌ No name found for NIP:', clean);
         }
       }
       
