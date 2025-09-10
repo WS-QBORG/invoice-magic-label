@@ -22,7 +22,23 @@ interface BuyerVerificationRule {
  */
 export function useBuyerNipMapping() {
   const [loading, setLoading] = useState(false);
-  const [buyerMappings, setBuyerMappings] = useState<Record<string, BuyerMapping>>({});
+  const [buyerMappings, setBuyerMappings] = useState<Record<string, BuyerMapping>>({
+    // Predefined buyer mappings
+    '8522482321': {
+      nip: '8522482321',
+      name: 'JDG Twój Instalator Piotr Murawski',
+      address: '',
+      createdAt: 0,
+      lastUsed: 0
+    },
+    '8522669232': {
+      nip: '8522669232', 
+      name: 'QBORG SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ',
+      address: '',
+      createdAt: 0,
+      lastUsed: 0
+    }
+  });
   
   // Predefined verification rules
   const verificationRules: BuyerVerificationRule[] = [
@@ -48,15 +64,49 @@ export function useBuyerNipMapping() {
       const mappingsRef = ref(database, 'buyerMappings');
       const snapshot = await get(mappingsRef);
       
+      // Keep predefined mappings and merge with Firebase data
+      const predefinedMappings = {
+        '8522482321': {
+          nip: '8522482321',
+          name: 'JDG Twój Instalator Piotr Murawski',
+          address: '',
+          createdAt: 0,
+          lastUsed: 0
+        },
+        '8522669232': {
+          nip: '8522669232', 
+          name: 'QBORG SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ',
+          address: '',
+          createdAt: 0,
+          lastUsed: 0
+        }
+      };
+      
       if (snapshot.exists()) {
         const mappings = snapshot.val();
-        setBuyerMappings(mappings || {});
+        setBuyerMappings({ ...predefinedMappings, ...mappings });
       } else {
-        setBuyerMappings({});
+        setBuyerMappings(predefinedMappings);
       }
     } catch (error) {
       console.error('Error loading buyer mappings:', error);
-      setBuyerMappings({});
+      // Fallback to predefined mappings on error
+      setBuyerMappings({
+        '8522482321': {
+          nip: '8522482321',
+          name: 'JDG Twój Instalator Piotr Murawski',
+          address: '',
+          createdAt: 0,
+          lastUsed: 0
+        },
+        '8522669232': {
+          nip: '8522669232', 
+          name: 'QBORG SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ',
+          address: '',
+          createdAt: 0,
+          lastUsed: 0
+        }
+      });
     } finally {
       setLoading(false);
     }
