@@ -9,6 +9,8 @@ import { Edit2, Save, X } from 'lucide-react';
 import { InvoiceData } from '@/types/invoice';
 import { MPK_OPTIONS, GROUP_OPTIONS, type MPKOption, type GroupOption } from '@/utils/mpkGroups';
 import { useBuyerNipMapping } from '@/hooks/useBuyerNipMapping';
+import { useVendorNipToMapping } from '@/hooks/useVendorNipToMapping';
+import { useVendorNipMapping } from '@/hooks/useVendorNipMapping';
 
 interface EditInvoiceDialogProps {
   isOpen: boolean;
@@ -21,6 +23,8 @@ export function EditInvoiceDialog({ isOpen, onClose, onSave, invoice }: EditInvo
   const [editedInvoice, setEditedInvoice] = useState<InvoiceData | null>(null);
   const [saving, setSaving] = useState(false);
   const { buyerMappings } = useBuyerNipMapping();
+  const { findVendorMappingByNip } = useVendorNipToMapping();
+  const { findVendorNameByNip } = useVendorNipMapping();
 
   // Initialize form with invoice data when dialog opens
   useEffect(() => {
@@ -98,6 +102,30 @@ export function EditInvoiceDialog({ isOpen, onClose, onSave, invoice }: EditInvo
           newName: buyerMappings[value].name 
         });
         updated.buyerName = buyerMappings[value].name;
+      }
+      
+      // Auto-update vendor name, MPK, and group when vendor NIP changes
+      if (field === 'vendorNip' && value) {
+        const vendorMapping = findVendorMappingByNip(value);
+        const vendorName = findVendorNameByNip(value);
+        
+        if (vendorMapping) {
+          console.log('🔄 Auto-updating vendor data from NIP:', { 
+            nip: value, 
+            name: vendorMapping.vendorName || vendorName,
+            mpk: vendorMapping.mpk,
+            group: vendorMapping.group
+          });
+          
+          if (vendorName) {
+            updated.vendorName = vendorName;
+          }
+          updated.mpk = vendorMapping.mpk;
+          updated.group = vendorMapping.group;
+        } else if (vendorName) {
+          console.log('🔄 Auto-updating vendor name from NIP:', { nip: value, name: vendorName });
+          updated.vendorName = vendorName;
+        }
       }
       
       // Update sequential number when vendor name changes for special NIPs

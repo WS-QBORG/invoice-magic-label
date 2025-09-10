@@ -10,6 +10,7 @@ import { EditInvoiceDialog } from './EditInvoiceDialog';
 import { VendorMappingDialog } from './VendorMappingDialog';
 import { useFirebaseVendors } from '@/hooks/useFirebaseVendors';
 import { useVendorNipMapping } from '@/hooks/useVendorNipMapping';
+import { useVendorNipToMapping } from '@/hooks/useVendorNipToMapping';
 import { useBuyerNipMapping } from '@/hooks/useBuyerNipMapping';
 import { useInvoiceStorage } from '@/hooks/useInvoiceStorage';
 import { useInvoiceCounters } from '@/hooks/useInvoiceCounters';
@@ -87,6 +88,12 @@ export function InvoiceProcessor() {
     checkVendorNameUpdate,
     loading: nipMappingLoading
   } = useVendorNipMapping();
+
+  const {
+    findVendorMappingByNip,
+    saveVendorNipMapping: saveVendorNipToMapping,
+    updateVendorNipMappingLastUsed
+  } = useVendorNipToMapping();
 
   const {
     verifyBuyerNip,
@@ -251,10 +258,15 @@ export function InvoiceProcessor() {
       
       if (existingMapping) {
         // We have a mapping - proceed with processing
-          await finishProcessing(vendorName, vendorNip, buyerName, finalBuyerNip, clientNumber, invoiceNumber, existingMapping.mpk, existingMapping.group, existingMapping.category, issueDate, dueDate, paymentMethod);
+        await finishProcessing(vendorName, vendorNip, buyerName, finalBuyerNip, clientNumber, invoiceNumber, existingMapping.mpk, existingMapping.group, existingMapping.category, issueDate, dueDate, paymentMethod);
         
         // Update last used timestamp
         await updateVendorLastUsed(vendorName);
+        
+        // Save vendor NIP to mapping assignment for future auto-population
+        if (vendorNip) {
+          await saveVendorNipToMapping(vendorNip, vendorName, existingMapping.mpk, existingMapping.group, existingMapping.category);
+        }
         
         // Update buyer usage tracking if NIP was corrected
         if (buyerVerification.correctedNip) {
@@ -285,6 +297,11 @@ export function InvoiceProcessor() {
           );
           
           await finishProcessing(vendorName, vendorNip, buyerName, finalBuyerNip, clientNumber, invoiceNumber, detectedCategory.mpk, detectedCategory.group, detectedCategory.description, issueDate, dueDate, paymentMethod);
+          
+          // Save vendor NIP to mapping assignment for future auto-population
+          if (vendorNip) {
+            await saveVendorNipToMapping(vendorNip, vendorName, detectedCategory.mpk, detectedCategory.group, detectedCategory.description);
+          }
           
           toast({
             title: "Automatyczne przypisanie",
@@ -449,6 +466,11 @@ export function InvoiceProcessor() {
           title: "Zapisano mapowanie NIP",
           description: `NIP ${pendingInvoiceData.vendorNip} → ${manualVendorName}`
         });
+      }
+      
+      // Save vendor NIP to mapping assignment for future auto-population
+      if (pendingInvoiceData.vendorNip) {
+        await saveVendorNipToMapping(pendingInvoiceData.vendorNip, vendorNameToSave, mpk, group, category);
       }
       
       // Complete processing with the assigned values
