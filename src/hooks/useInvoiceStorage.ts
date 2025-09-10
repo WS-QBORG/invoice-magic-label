@@ -87,6 +87,9 @@ export function useInvoiceStorage() {
         savedAt: Date.now()
       }) as InvoiceData;
       
+      console.log('🔍 Data before Firebase save:', JSON.stringify(invoiceToSave, null, 2));
+      console.log('🔍 vendorNip value:', invoiceToSave.vendorNip, 'type:', typeof invoiceToSave.vendorNip);
+      
       await set(newInvoiceRef, invoiceToSave);
       
       // Update local state
@@ -119,6 +122,9 @@ export function useInvoiceStorage() {
         id: invoiceId,
         lastModified: Date.now()
       }) as InvoiceData;
+      
+      console.log('🔍 Data before Firebase update:', JSON.stringify(invoiceToUpdate, null, 2));
+      console.log('🔍 vendorNip value:', invoiceToUpdate.vendorNip, 'type:', typeof invoiceToUpdate.vendorNip);
       
       await set(invoiceRef, invoiceToUpdate);
       
