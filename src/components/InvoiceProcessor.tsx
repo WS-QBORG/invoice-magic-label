@@ -771,7 +771,10 @@ export function InvoiceProcessor() {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `${invoice.label}.pdf`;
+        // Replace invalid filename characters
+        const safeFileName = invoice.label.replace(/[;:/\\*?"<>|]/g, '_');
+        link.download = `${safeFileName}.pdf`;
+        console.log('📥 Downloading PDF with filename:', `${safeFileName}.pdf`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -823,7 +826,10 @@ export function InvoiceProcessor() {
               const link = document.createElement('a');
               link.href = url;
               const extension = fileToAnnotate!.type.includes('png') ? 'png' : 'jpg';
-              link.download = `${invoice.label}.${extension}`;
+              // Replace invalid filename characters
+              const safeFileName = invoice.label.replace(/[;:/\\*?"<>|]/g, '_');
+              link.download = `${safeFileName}.${extension}`;
+              console.log('📥 Downloading image with filename:', `${safeFileName}.${extension}`);
               document.body.appendChild(link);
               link.click();
               document.body.removeChild(link);
