@@ -104,7 +104,7 @@ export async function extractTextFromImage(file: File): Promise<string> {
     if (!ctx) throw new Error('Could not get canvas context');
 
     // Resize keeping aspect ratio (up to ~2000px on the long edge)
-    const maxDim = 2000;
+    const maxDim = 1600;
     let w = img.naturalWidth;
     let h = img.naturalHeight;
     if ((w >= h && w > maxDim) || (h > w && h > maxDim)) {
@@ -321,67 +321,70 @@ async function loadPdfJs(): Promise<void> {
  * @returns Vendor name or "Nie znaleziono"
  */
 export function extractVendorName(text: string): string {
-  // First try to find explicit "Sprzedawca:" pattern
-  const sprzedawcaRegex = /Sprzedawca:?\s*\n?([^\n]+)/i;
-  let match = text.match(sprzedawcaRegex);
-  
-  if (match && match[1].trim() && !match[1].trim().toLowerCase().includes('nabywca')) {
-    return match[1].trim();
+  const isBad = (s: string) => {
+    const t = (s || '').trim();
+    if (!t || t.length < 2) return true;
+    if (/^\[/.test(t)) return true;
+    if (/^sprzedawca:?$/i.test(t)) return true;
+    if (/(data|dostawy|wykonania|termin|płatno|rachunek|konto|faktura|nabywca|odbiorca|adres|ul\.|nip|regon)/i.test(t)) return true;
+    return false;
+  };
+
+  const findAfterLabel = (label: RegExp) => {
+    const m = text.match(label);
+    if (!m) return undefined;
+    const idx = m.index ?? -1;
+    if (idx < 0) return undefined;
+    const after = text.slice(idx).split(/\n/).slice(1, 6).map(l => l.trim()).filter(Boolean);
+    for (const line of after) {
+      if (!isBad(line)) return line;
+    }
+    return undefined;
+  };
+
+  // Try explicit label
+  let m = text.match(/Sprzedawca:?\s*\n?([^\n]+)/i);
+  if (m) {
+    const cand = m[1].trim();
+    if (!isBad(cand) && !cand.toLowerCase().includes('nabywca')) return cand;
+    const next = findAfterLabel(/Sprzedawca:?/i);
+    if (next) return next;
   }
-  
-  // Try alternative patterns for vendor name
-  const vendorPatterns = [
-    /Wystawca:?\s*\n?([^\n]+)/i,
-    /Supplier:?\s*\n?([^\n]+)/i,
-    /Dostawca:?\s*\n?([^\n]+)/i
-  ];
-  
-  for (const pattern of vendorPatterns) {
-    match = text.match(pattern);
-    if (match && match[1].trim()) {
-      return match[1].trim();
+
+  // Try alternative labels
+  const alt = [/Wystawca:?/i, /Supplier:?/i, /Dostawca:?/i];
+  for (const lab of alt) {
+    const mm = text.match(new RegExp(lab.source + "\\s*\\n?([^\\n]+)", 'i'));
+    if (mm) {
+      const cand = mm[1].trim();
+      if (!isBad(cand)) return cand;
+      const next = findAfterLabel(lab);
+      if (next) return next;
     }
   }
-  
-  // Look for company name in the header (first few lines before "Nabywca")
-  const nabywcaIndex = text.search(/Nabywca/i);
-  const searchArea = nabywcaIndex >= 0 ? text.slice(0, nabywcaIndex) : text.slice(0, Math.min(500, text.length));
-  
-  const lines = searchArea.split(/\n/).map(line => line.trim()).filter(line => line.length > 1);
-  
-  // Look for company identifiers in the first part of the document
-  for (let i = 0; i < Math.min(10, lines.length); i++) {
+
+  // Header heuristic before Nabywca/Odbiorca
+  const splitIdx = (() => {
+    const a = text.search(/Nabywca/i);
+    const b = text.search(/Odbiorca/i);
+    const idxs = [a, b].filter(n => n >= 0);
+    return idxs.length ? Math.min(...idxs) : -1;
+  })();
+  const searchArea = splitIdx >= 0 ? text.slice(0, splitIdx) : text.slice(0, Math.min(500, text.length));
+  const lines = searchArea.split(/\n/).map(l => l.trim()).filter(l => l.length > 1);
+
+  for (let i = 0; i < Math.min(12, lines.length); i++) {
     const line = lines[i];
-    
-    // Skip obviously non-company lines
-    if (/faktura|invoice|data|nr[\s:]|nip[\s:]|ul[\s\.]|adres|kod|tel[\s:]|email|www\.|http/i.test(line)) {
-      continue;
-    }
-    
-    // Look for company patterns or just substantial text that could be a company name
-    if (line.length > 2 && (
-         /sp\.?\s*z\s*o\.?o\.?/i.test(line) || 
-         /s\.a\./i.test(line) || 
-         /ltd/i.test(line) ||
-         /sp\.\s*j\./i.test(line) ||
-         /spółka/i.test(line) ||
-         /przedsiębiorstwo/i.test(line) ||
-         /ipos/i.test(line) ||
-         /^[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż\s]{2,}$/i.test(line) || // Polish company name pattern
-         (i < 5 && /[A-ZĄĆĘŁŃÓŚŹŻ]/.test(line) && line.length > 2) // Company name in header
-       )) {
+    if (isBad(line)) continue;
+    if (/sp\.?\s*z\s*o\.?o\.?/i.test(line) || /s\.a\./i.test(line) || /ltd/i.test(line) || /sp\.\s*j\./i.test(line) || /spółka/i.test(line) || /przedsiębiorstwo/i.test(line) || /ipos/i.test(line) || /^[A-ZĄĆĘŁŃÓŚŹŻ][A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż0-9 &"'().-]{2,}$/.test(line)) {
       return line.trim();
     }
   }
-  
-  // If still nothing found, try to get any meaningful text from the very beginning
-  if (lines.length > 0) {
-    const firstLine = lines[0];
-    if (firstLine.length > 2 && !/^\d/.test(firstLine)) {
-      return firstLine.trim();
-    }
+
+  for (const line of lines) {
+    if (!isBad(line)) return line;
   }
-  
+
   return 'Nie znaleziono';
 }
 
@@ -391,47 +394,57 @@ export function extractVendorName(text: string): string {
  * @returns Buyer name or "Nie znaleziono"
  */
 export function extractBuyerName(text: string): string {
-  // Look for "Nabywca:" followed by the name
-  const nabywcaRegex = /Nabywca:?\s*\n?([^\n]+)/i;
-  const match = text.match(nabywcaRegex);
-  
-  if (match) {
-    let buyerName = match[1].trim();
-    
-    // Clean up common prefixes that might be part of vendor name
-    // Remove vendor names that might be included
-    const vendorPrefixes = [
-      /^iPOS\s+SA\s*/i,
-      /^ipos\s*/i,
-      /^firma\s*/i,
-      /^sp\.\s*z\s*o\.o\.?\s*/i,
-      /^s\.a\.\s*/i
-    ];
-    
-    for (const prefix of vendorPrefixes) {
-      buyerName = buyerName.replace(prefix, '').trim();
+  const isBad = (s: string) => {
+    const t = (s || '').trim();
+    if (!t || t.length < 2) return true;
+    if (/^nabywca:?$/i.test(t) || /^odbiorca:?$/i.test(t)) return true;
+    if (/(sprzedawca|wystawca|data|termin|płatno|rachunek|konto|faktura|adres|ul\.|nip|regon)/i.test(t)) return true;
+    return false;
+  };
+  const findAfter = (label: RegExp) => {
+    const m = text.match(label);
+    if (!m) return undefined;
+    const idx = m.index ?? -1;
+    if (idx < 0) return undefined;
+    const after = text.slice(idx).split(/\n/).slice(1, 7).map(l => l.trim()).filter(Boolean);
+    for (const line of after) {
+      if (!isBad(line)) return line;
     }
-    
-    // If there's still content, return it
-    if (buyerName.length > 0) {
-      return buyerName;
-    }
+    return undefined;
+  };
+
+  // Nabywca
+  let m = text.match(/Nabywca:?\s*\n?([^\n]+)/i);
+  if (m) {
+    const cand = m[1].trim();
+    if (!isBad(cand)) return cand;
+    const next = findAfter(/Nabywca:?/i);
+    if (next) return next;
   }
-  
-  // Alternative: look for buyer in structured format
+
+  // Odbiorca
+  m = text.match(/Odbiorca:?\s*\n?([^\n]+)/i);
+  if (m) {
+    const cand = m[1].trim();
+    if (!isBad(cand)) return cand;
+    const next = findAfter(/Odbiorca:?/i);
+    if (next) return next;
+  }
+
+  // Alternative patterns (fallback)
   const buyerPatterns = [
     /Nabywca\s*[:]\s*([^NIP\n]+?)(?=NIP|$)/i,
     /Buyer\s*[:]\s*([^NIP\n]+?)(?=NIP|$)/i,
     /Odbiorca\s*[:]\s*([^NIP\n]+?)(?=NIP|$)/i
   ];
-  
   for (const pattern of buyerPatterns) {
     const altMatch = text.match(pattern);
     if (altMatch) {
-      return altMatch[1].trim();
+      const cand = altMatch[1].trim();
+      if (!isBad(cand)) return cand;
     }
   }
-  
+
   return 'Nie znaleziono';
 }
 
