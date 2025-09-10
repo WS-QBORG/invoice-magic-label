@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Edit2, Save, X } from 'lucide-react';
 import { InvoiceData } from '@/types/invoice';
 import { MPK_OPTIONS, GROUP_OPTIONS, type MPKOption, type GroupOption } from '@/utils/mpkGroups';
+import { useBuyerNipMapping } from '@/hooks/useBuyerNipMapping';
 
 interface EditInvoiceDialogProps {
   isOpen: boolean;
@@ -19,6 +20,7 @@ interface EditInvoiceDialogProps {
 export function EditInvoiceDialog({ isOpen, onClose, onSave, invoice }: EditInvoiceDialogProps) {
   const [editedInvoice, setEditedInvoice] = useState<InvoiceData | null>(null);
   const [saving, setSaving] = useState(false);
+  const { buyerMappings } = useBuyerNipMapping();
 
   // Initialize form with invoice data when dialog opens
   useEffect(() => {
@@ -32,10 +34,29 @@ export function EditInvoiceDialog({ isOpen, onClose, onSave, invoice }: EditInvo
     
     setSaving(true);
     try {
-      // Update label when MPK or Group changes
-      const updatedLabel = editedInvoice.clientNumber 
-        ? `${editedInvoice.group};${editedInvoice.mpk};${editedInvoice.sequentialNumber};${editedInvoice.clientNumber}`
-        : `${editedInvoice.group};${editedInvoice.mpk};${editedInvoice.sequentialNumber}`;
+      // Update label when MPK or Group changes - with special formatting for specific NIPs
+      let updatedLabel: string;
+      
+      // Use same logic as InvoiceProcessor for special NIPs
+      if (editedInvoice.buyerNip === '8522482321') {
+        const firstLetter = editedInvoice.vendorName.charAt(0).toUpperCase();
+        const sequentialNumber = `KJ_${firstLetter}_${editedInvoice.sequentialNumber.split('_').slice(2).join('_') || '0000'}`;
+        updatedLabel = editedInvoice.clientNumber 
+          ? `${editedInvoice.group};${editedInvoice.mpk};${sequentialNumber};${editedInvoice.clientNumber}`
+          : `${editedInvoice.group};${editedInvoice.mpk};${sequentialNumber}`;
+      } else if (editedInvoice.buyerNip === '8522669232') {
+        const firstLetter = editedInvoice.vendorName.charAt(0).toUpperCase();
+        const sequentialNumber = `KT_${firstLetter}_${editedInvoice.sequentialNumber.split('_').slice(2).join('_') || '0000'}`;
+        updatedLabel = editedInvoice.clientNumber 
+          ? `${editedInvoice.group};${editedInvoice.mpk};${sequentialNumber};${editedInvoice.clientNumber}`
+          : `${editedInvoice.group};${editedInvoice.mpk};${sequentialNumber}`;
+      } else {
+        // Standard formatting for other buyers
+        updatedLabel = editedInvoice.clientNumber 
+          ? `${editedInvoice.group};${editedInvoice.mpk};${editedInvoice.sequentialNumber};${editedInvoice.clientNumber}`
+          : `${editedInvoice.group};${editedInvoice.mpk};${editedInvoice.sequentialNumber}`;
+      }
+      
       const finalInvoice = {
         ...editedInvoice,
         label: updatedLabel,
@@ -54,10 +75,18 @@ export function EditInvoiceDialog({ isOpen, onClose, onSave, invoice }: EditInvo
   const handleFieldChange = (field: keyof InvoiceData, value: string) => {
     if (!editedInvoice) return;
     
-    setEditedInvoice(prev => prev ? {
-      ...prev,
-      [field]: value
-    } : null);
+    setEditedInvoice(prev => {
+      if (!prev) return null;
+      
+      const updated = { ...prev, [field]: value };
+      
+      // Auto-update buyer name when NIP changes
+      if (field === 'buyerNip' && value && buyerMappings[value]) {
+        updated.buyerName = buyerMappings[value].name;
+      }
+      
+      return updated;
+    });
   };
 
   const handleGroupChange = (newGroup: string) => {
