@@ -100,6 +100,21 @@ export function EditInvoiceDialog({ isOpen, onClose, onSave, invoice }: EditInvo
         updated.buyerName = buyerMappings[value].name;
       }
       
+      // Update sequential number when vendor name changes for special NIPs
+      if (field === 'vendorName' && value) {
+        const firstLetter = value.trim().charAt(0).toUpperCase() || 'X';
+        
+        if (prev.buyerNip === '8522482321' && prev.sequentialNumber.includes('KJ_')) {
+          // Extract the number part from existing sequential number
+          const numberPart = prev.sequentialNumber.split('_').slice(2).join('_') || '0000';
+          updated.sequentialNumber = `KJ_${firstLetter}_${numberPart}`;
+        } else if (prev.buyerNip === '8522669232' && prev.sequentialNumber.includes('KT_')) {
+          // Extract the number part from existing sequential number
+          const numberPart = prev.sequentialNumber.split('_').slice(2).join('_') || '0000';
+          updated.sequentialNumber = `KT_${firstLetter}_${numberPart}`;
+        }
+      }
+      
       return updated;
     });
   };
