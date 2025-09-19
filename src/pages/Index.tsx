@@ -1,4 +1,5 @@
 import { InvoiceProcessor } from '@/components/InvoiceProcessor';
+import { OneDriveSettings } from '@/components/OneDriveSettings';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { FileText, Database, Zap, Shield } from 'lucide-react';
 
@@ -39,6 +40,9 @@ const Index = () => {
 
           {/* Sidebar with Features */}
           <div className="space-y-6">
+            
+            {/* OneDrive Integration */}
+            <OneDriveSettings />
             
             {/* How it works */}
             <Card>
