@@ -28,6 +28,8 @@ export interface InvoiceData {
   savedAt?: number;     // Timestamp when saved to Firebase
   lastModified?: number; // Timestamp when last modified
   fileName?: string;    // Original file name
+  source?: string;      // Processing source (e.g., 'OneDrive', 'Local')
+  sourceFile?: string;  // Original source file path
 }
 
 export interface InvoiceCounter {
