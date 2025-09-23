@@ -22,81 +22,38 @@ export const LocalFolderSettings = () => {
   const { processOneDriveFiles } = useOneDriveIntegration();
   const { toast } = useToast();
 
-  const handleFolderSelect = useCallback(async () => {
-    try {
-      // Check if File System Access API is available (Chrome 86+)
-      if ('showDirectoryPicker' in window) {
-        const dirHandle = await (window as any).showDirectoryPicker();
-        const folderFiles: LocalFile[] = [];
-        
-        // Recursively read files from the directory
-        async function readDirectory(dirHandle: any, path = '') {
-          for await (const [name, handle] of dirHandle.entries()) {
-            const fullPath = path ? `${path}/${name}` : name;
-            
-            if (handle.kind === 'file') {
-              const file = await handle.getFile();
-              if (file.name.toLowerCase().endsWith('.pdf')) {
-                folderFiles.push({
-                  name: file.name,
-                  file,
-                  fullPath
-                });
-              }
-            } else if (handle.kind === 'directory') {
-              await readDirectory(handle, fullPath);
-            }
-          }
-        }
-        
-        await readDirectory(dirHandle);
-        setSelectedFolder(dirHandle.name);
-        setFiles(folderFiles);
-        
-        toast({
-          title: "Folder wybrany",
-          description: `Znaleziono ${folderFiles.length} plików PDF w folderze "${dirHandle.name}"`
-        });
-      } else {
-        // Fallback to traditional file input
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.webkitdirectory = true;
-        input.multiple = true;
-        
-        input.onchange = (e) => {
-          const selectedFiles = Array.from((e.target as HTMLInputElement).files || []);
-          const pdfFiles = selectedFiles
-            .filter(file => file.name.toLowerCase().endsWith('.pdf'))
-            .map(file => ({
-              name: file.name,
-              file,
-              fullPath: file.webkitRelativePath || file.name
-            }));
-          
-          setFiles(pdfFiles);
-          
-          // Extract folder name from the first file's path
-          const firstPath = pdfFiles[0]?.fullPath || '';
-          const folderName = firstPath.split('/')[0] || 'Wybrany folder';
-          setSelectedFolder(folderName);
-          
-          toast({
-            title: "Folder wybrany",
-            description: `Znaleziono ${pdfFiles.length} plików PDF w folderze "${folderName}"`
-          });
-        };
-        
-        input.click();
-      }
-    } catch (error) {
-      console.error('Error selecting folder:', error);
+  const handleFolderSelect = useCallback(() => {
+    // Use traditional file input with webkitdirectory (works in all browsers and iframes)
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.webkitdirectory = true;
+    input.multiple = true;
+    input.accept = '.pdf';
+    
+    input.onchange = (e) => {
+      const selectedFiles = Array.from((e.target as HTMLInputElement).files || []);
+      const pdfFiles = selectedFiles
+        .filter(file => file.name.toLowerCase().endsWith('.pdf'))
+        .map(file => ({
+          name: file.name,
+          file,
+          fullPath: file.webkitRelativePath || file.name
+        }));
+      
+      setFiles(pdfFiles);
+      
+      // Extract folder name from the first file's path
+      const firstPath = pdfFiles[0]?.fullPath || '';
+      const folderName = firstPath.split('/')[0] || 'Wybrany folder';
+      setSelectedFolder(folderName);
+      
       toast({
-        title: "Błąd",
-        description: "Nie udało się wybrać folderu",
-        variant: "destructive"
+        title: "Folder wybrany",
+        description: `Znaleziono ${pdfFiles.length} plików PDF w folderze "${folderName}"`
       });
-    }
+    };
+    
+    input.click();
   }, [toast]);
 
   const handleProcessFiles = useCallback(async () => {
@@ -251,16 +208,13 @@ export const LocalFolderSettings = () => {
               </Button>
             </div>
 
-            {/* Browser compatibility notice */}
-            {!('showDirectoryPicker' in window) && (
-              <Alert>
-                <AlertTriangle className="h-4 w-4" />
-                <AlertDescription className="text-xs">
-                  Używasz starszej przeglądarki. Wybór folderu może być ograniczony.
-                  Zalecamy Chrome 86+ dla pełnej funkcjonalności.
-                </AlertDescription>
-              </Alert>
-            )}
+            {/* Info about folder selection */}
+            <Alert>
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription className="text-xs">
+                Po kliknięciu "Wybierz folder", w oknie dialogowym musisz wybrać folder i kliknąć "Wybierz folder" lub "Select Folder".
+              </AlertDescription>
+            </Alert>
           </div>
         )}
       </CardContent>
