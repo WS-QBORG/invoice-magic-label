@@ -113,6 +113,14 @@ export const LocalFolderSettings = () => {
       setProcessedInvoices(successfulInvoices);
       setShowResults(true);
 
+      // Reload saved invoices to refresh the main panel
+      await reloadInvoices();
+
+      // Notify parent window to refresh (if InvoiceProcessor is listening)
+      window.dispatchEvent(new CustomEvent('invoicesProcessed', { 
+        detail: { invoices: successfulInvoices } 
+      }));
+
       toast({
         title: "Przetwarzanie zakończone", 
         description: `Pomyślnie: ${successful}, Błędy: ${failed}`
@@ -128,7 +136,7 @@ export const LocalFolderSettings = () => {
     } finally {
       setIsProcessing(false);
     }
-  }, [files, processOneDriveFiles, toast]);
+  }, [files, processOneDriveFiles, toast, reloadInvoices]);
 
   const handleClearSelection = () => {
     setSelectedFolder('');
@@ -293,7 +301,7 @@ export const LocalFolderSettings = () => {
               <div className="space-y-4 border-t pt-4">
                 <div className="flex items-center justify-between">
                   <h4 className="text-sm font-medium">
-                    Przetworzone faktury ({processedInvoices.length})
+                    Ostatnio przetworzone ({processedInvoices.length})
                   </h4>
                   <Button
                     onClick={exportToExcel}
@@ -305,26 +313,12 @@ export const LocalFolderSettings = () => {
                   </Button>
                 </div>
                 
-                <div className="max-h-48 overflow-y-auto space-y-2">
-                  {processedInvoices.map((invoice, index) => (
-                    <div key={invoice.id || index} className="bg-muted/50 p-3 rounded-lg text-xs">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="font-medium text-foreground">
-                          {invoice.vendorName}
-                        </div>
-                        <Badge variant="secondary" className="text-xs">
-                          {invoice.label}
-                        </Badge>
-                      </div>
-                      <div className="space-y-1 text-muted-foreground">
-                        <div>Nabywca: {invoice.buyerName}</div>
-                        <div>Faktura: {invoice.invoiceNumber}</div>
-                        <div>MPK: {invoice.mpk} | Grupa: {invoice.group}</div>
-                        <div>Plik: {invoice.fileName}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <Alert>
+                  <CheckCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Pliki zostały pomyślnie przetworzone i są widoczne w głównym panelu poniżej.
+                  </AlertDescription>
+                </Alert>
               </div>
             )}
           </div>

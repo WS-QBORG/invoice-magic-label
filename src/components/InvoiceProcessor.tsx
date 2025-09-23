@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -106,8 +107,20 @@ export function InvoiceProcessor() {
     saveInvoice,
     updateInvoice,
     deleteInvoice,
+    reloadInvoices,
     loading: invoiceStorageLoading
   } = useInvoiceStorage();
+
+  // Listen for events from local folder processing
+  React.useEffect(() => {
+    const handleInvoicesProcessed = () => {
+      // Reload invoices when local files are processed
+      reloadInvoices();
+    };
+
+    window.addEventListener('invoicesProcessed', handleInvoicesProcessed);
+    return () => window.removeEventListener('invoicesProcessed', handleInvoicesProcessed);
+  }, [reloadInvoices]);
 
   /**
    * Handle file selection
@@ -957,12 +970,12 @@ export function InvoiceProcessor() {
       </Card>
 
       {/* Processed Invoices */}
-      {processedInvoices.length > 0 && (
+      {(processedInvoices.length > 0 || savedInvoices.length > 0) && (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <CheckCircle2 className="h-5 w-5 text-success" />
-              Przetworzone faktury ({processedInvoices.length})
+              Wszystkie przetworzone faktury ({processedInvoices.length + savedInvoices.length})
             </CardTitle>
             <div className="flex gap-2 flex-wrap">
               <div className="flex gap-2 items-end">
@@ -997,76 +1010,129 @@ export function InvoiceProcessor() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
+            <div className="max-h-96 overflow-y-auto space-y-3">
+              {/* Current session processed invoices */}
               {processedInvoices.map((invoice, index) => (
-                <div key={index} className="border rounded-lg p-4 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">{invoice.vendorName}</p>
-                      <p className="text-sm text-muted-foreground">
-                        Faktura: {invoice.invoiceNumber}
-                      </p>
+                <div key={invoice.id || `processed-${index}`} className="bg-muted/50 p-4 rounded-lg">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="space-y-1">
+                      <div className="font-medium text-foreground">{invoice.vendorName}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {invoice.buyerName} • NIP: {invoice.buyerNip}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Źródło: {invoice.source || 'Lokalne'} • {invoice.fileName}
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge variant="secondary">
-                        {invoice.group} – {invoice.mpk} – {invoice.sequentialNumber}
+                      <Badge variant="secondary" className="text-xs">
+                        {invoice.label}
                       </Badge>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => downloadAnnotatedInvoice(invoice)}
-                        title="Pobierz fakturę z etykietą"
-                      >
-                        <FileImage className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEditInvoice(invoice)}
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </Button>
-                      {invoice.id && (
+                      <div className="flex gap-1">
                         <Button
-                          variant="outline"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditInvoice(invoice)}
+                          disabled={!invoice.id}
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => downloadAnnotatedInvoice(invoice)}
+                          disabled={!invoice.fileName}
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
                           size="sm"
                           onClick={() => handleDeleteInvoice(invoice)}
+                          disabled={!invoice.id}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
-                      )}
+                      </div>
                     </div>
                   </div>
-                  <div className="text-xs text-muted-foreground space-y-1">
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <span>Sprzedawca: {invoice.vendorName}</span>
-                        {invoice.vendorNip && (
-                          <>
-                            <br />
-                            <span>NIP sprzedawcy: {invoice.vendorNip}</span>
-                          </>
-                        )}
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                    <div>
+                      <span className="text-muted-foreground">Faktura:</span><br />
+                      <span className="font-medium">{invoice.invoiceNumber}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">MPK:</span><br />
+                      <span className="font-medium">{invoice.mpk}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Grupa:</span><br />
+                      <span className="font-medium">{invoice.group}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Data:</span><br />
+                      <span className="font-medium">{invoice.issueDate}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              
+              {/* Previously saved invoices */}
+              {savedInvoices.slice(0, 20).map((invoice, index) => (
+                <div key={invoice.id || `saved-${index}`} className="bg-background border p-4 rounded-lg">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="space-y-1">
+                      <div className="font-medium text-foreground">{invoice.vendorName}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {invoice.buyerName} • NIP: {invoice.buyerNip}
                       </div>
-                       <div>
-                         <span>Nabywca: {
-                           // Display correct buyer name based on NIP
-                           invoice.buyerNip === '8522482321' ? 'TWÓJ INSTALATOR PIOTR MURAWSKI' :
-                           invoice.buyerNip === '8522669232' ? 'QBORG SPÓŁKA' :
-                           invoice.buyerName
-                         }</span>
-                         <br />
-                         <span>NIP nabywcy: {invoice.buyerNip}</span>
-                       </div>
-                     </div>
-                     {(invoice.clientNumber || invoice.issueDate || invoice.dueDate || invoice.paymentMethod) && (
-                       <div className="text-xs text-muted-foreground mt-1">
-                         {invoice.clientNumber && <span>Numer klienta: {invoice.clientNumber} </span>}
-                         {invoice.issueDate && <span>Data wystawienia: {invoice.issueDate} </span>}
-                         {invoice.dueDate && <span>Termin płatności: {invoice.dueDate} </span>}
-                         {invoice.paymentMethod && <span>Płatność: {invoice.paymentMethod}</span>}
-                       </div>
-                     )}
+                      <div className="text-xs text-muted-foreground">
+                        Źródło: {invoice.source || 'Nieznane'} • {invoice.fileName}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs">
+                        {invoice.label}
+                      </Badge>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditInvoice(invoice)}
+                          disabled={!invoice.id}
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteInvoice(invoice)}
+                          disabled={!invoice.id}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                    <div>
+                      <span className="text-muted-foreground">Faktura:</span><br />
+                      <span className="font-medium">{invoice.invoiceNumber}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">MPK:</span><br />
+                      <span className="font-medium">{invoice.mpk}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Grupa:</span><br />
+                      <span className="font-medium">{invoice.group}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Data:</span><br />
+                      <span className="font-medium">{invoice.issueDate}</span>
+                    </div>
                   </div>
                 </div>
               ))}
