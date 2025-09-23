@@ -215,7 +215,7 @@ export const useOneDriveIntegration = () => {
         label,
         processedAt: Date.now(),
         fileName: file.name,
-        source: 'OneDrive', // Mark as OneDrive source
+        source: file.webUrl?.startsWith('local://') ? 'Local' : 'OneDrive', // Detect source based on URL
         sourceFile: file.fullPath // Store original OneDrive path
       };
 

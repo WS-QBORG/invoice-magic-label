@@ -3,9 +3,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Folder, FolderOpen, Upload, Loader2, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Folder, FolderOpen, Upload, Loader2, CheckCircle, AlertTriangle, FileText, Download } from 'lucide-react';
 import { useOneDriveIntegration } from '@/hooks/useOneDriveIntegration';
+import { useInvoiceStorage } from '@/hooks/useInvoiceStorage';
 import { useToast } from '@/components/ui/use-toast';
+import { InvoiceData } from '@/types/invoice';
 
 interface LocalFile {
   name: string;
@@ -18,8 +20,11 @@ export const LocalFolderSettings = () => {
   const [files, setFiles] = useState<LocalFile[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processedCount, setProcessedCount] = useState(0);
+  const [processedInvoices, setProcessedInvoices] = useState<InvoiceData[]>([]);
+  const [showResults, setShowResults] = useState(false);
   
   const { processOneDriveFiles } = useOneDriveIntegration();
+  const { savedInvoices, reloadInvoices } = useInvoiceStorage();
   const { toast } = useToast();
 
   const handleFolderSelect = useCallback(() => {
@@ -98,8 +103,22 @@ export const LocalFolderSettings = () => {
       const successful = results.filter(r => r.success).length;
       const failed = results.filter(r => !r.success).length;
 
+      // Reload invoices to get the freshly processed ones
+      await reloadInvoices();
+      
+      // Get the recently processed invoices (last N invoices based on processing timestamp)
+      const recentInvoices = savedInvoices
+        .filter(invoice => 
+          invoice.source === 'Local' &&
+          Date.now() - invoice.processedAt < 300000 // Last 5 minutes
+        )
+        .slice(0, successful);
+      
+      setProcessedInvoices(recentInvoices);
+      setShowResults(true);
+
       toast({
-        title: "Przetwarzanie zakończone",
+        title: "Przetwarzanie zakończone", 
         description: `Pomyślnie: ${successful}, Błędy: ${failed}`
       });
 
@@ -119,6 +138,63 @@ export const LocalFolderSettings = () => {
     setSelectedFolder('');
     setFiles([]);
     setProcessedCount(0);
+    setProcessedInvoices([]);
+    setShowResults(false);
+  };
+
+  const exportToExcel = async () => {
+    if (processedInvoices.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "Brak danych",
+        description: "Brak przetworzonych faktur do eksportu"
+      });
+      return;
+    }
+
+    try {
+      const XLSX = await import('xlsx');
+      
+      const excelData = processedInvoices.map(invoice => ({
+        'Nazwa sprzedawcy': invoice.vendorName,
+        'NIP sprzedawcy': invoice.vendorNip || '',
+        'Nazwa nabywcy': invoice.buyerName,
+        'NIP nabywcy': invoice.buyerNip,
+        'Numer klienta': invoice.clientNumber || '',
+        'Numer faktury': invoice.invoiceNumber,
+        'Data wystawienia': invoice.issueDate || '',
+        'Termin płatności': invoice.dueDate || '',
+        'Sposób płatności': invoice.paymentMethod || '',
+        'MPK': invoice.mpk,
+        'Grupa': invoice.group,
+        'Numer kolejny': invoice.sequentialNumber,
+        'Etykieta': invoice.label,
+        'Data przetworzenia': new Date(invoice.processedAt).toLocaleDateString('pl-PL'),
+        'Plik źródłowy': invoice.fileName || ''
+      }));
+
+      const workbook = XLSX.utils.book_new();
+      const worksheet = XLSX.utils.json_to_sheet(excelData);
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Faktury_lokalne');
+
+      const today = new Date();
+      const dateStr = today.toISOString().split('T')[0];
+      const filename = `Faktury_lokalne_${dateStr}.xlsx`;
+
+      XLSX.writeFile(workbook, filename);
+
+      toast({
+        title: "Eksport zakończony",
+        description: `Zapisano plik: ${filename}`
+      });
+    } catch (error) {
+      console.error('Export error:', error);
+      toast({
+        variant: "destructive",
+        title: "Błąd eksportu",
+        description: "Nie udało się wyeksportować danych"
+      });
+    }
   };
 
   return (
@@ -215,6 +291,46 @@ export const LocalFolderSettings = () => {
                 Po kliknięciu "Wybierz folder", w oknie dialogowym musisz wybrać folder i kliknąć "Wybierz folder" lub "Select Folder".
               </AlertDescription>
             </Alert>
+
+            {/* Show processed results */}
+            {showResults && processedInvoices.length > 0 && (
+              <div className="space-y-4 border-t pt-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-medium">
+                    Przetworzone faktury ({processedInvoices.length})
+                  </h4>
+                  <Button
+                    onClick={exportToExcel}
+                    size="sm"
+                    variant="outline"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Excel
+                  </Button>
+                </div>
+                
+                <div className="max-h-48 overflow-y-auto space-y-2">
+                  {processedInvoices.map((invoice, index) => (
+                    <div key={invoice.id || index} className="bg-muted/50 p-3 rounded-lg text-xs">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="font-medium text-foreground">
+                          {invoice.vendorName}
+                        </div>
+                        <Badge variant="secondary" className="text-xs">
+                          {invoice.label}
+                        </Badge>
+                      </div>
+                      <div className="space-y-1 text-muted-foreground">
+                        <div>Nabywca: {invoice.buyerName}</div>
+                        <div>Faktura: {invoice.invoiceNumber}</div>
+                        <div>MPK: {invoice.mpk} | Grupa: {invoice.group}</div>
+                        <div>Plik: {invoice.fileName}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </CardContent>

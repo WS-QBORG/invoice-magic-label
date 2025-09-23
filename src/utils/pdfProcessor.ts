@@ -328,7 +328,7 @@ export function extractVendorName(text: string): string {
     if (!t || t.length < 2) return true;
     if (/^\[/.test(t)) return true;
     if (/^sprzedawca:?$/i.test(t)) return true;
-    if (/(data|dostawy|wykonania|termin|płatno|rachunek|konto|faktura|nabywca|odbiorca|adres|ul\.|nip|regon)/i.test(t)) return true;
+    if (/(data|dostawy|wykonania|termin|płatno|rachunek|konto|faktura|nabywca|odbiorca|adres|ul\.|nip|regon|dokument)/i.test(t)) return true;
     return false;
   };
 
