@@ -51,7 +51,7 @@ export interface PendingInvoiceData {
 
 export interface ProcessingResult {
   success: boolean;
-  data?: InvoiceData;
+  invoiceData?: InvoiceData;
   needsUserInput?: boolean;
   suggestedMpk?: string;
   suggestedGroup?: string;

@@ -103,18 +103,14 @@ export const LocalFolderSettings = () => {
       const successful = results.filter(r => r.success).length;
       const failed = results.filter(r => !r.success).length;
 
-      // Reload invoices to get the freshly processed ones
-      await reloadInvoices();
+      // Get the successfully processed invoices directly from results
+      const successfulInvoices = results
+        .filter(r => r.success && r.invoiceData)
+        .map(r => r.invoiceData!)
+        .filter(Boolean);
       
-      // Get the recently processed invoices (last N invoices based on processing timestamp)
-      const recentInvoices = savedInvoices
-        .filter(invoice => 
-          invoice.source === 'Local' &&
-          Date.now() - invoice.processedAt < 300000 // Last 5 minutes
-        )
-        .slice(0, successful);
-      
-      setProcessedInvoices(recentInvoices);
+      console.log('🔍 Successfully processed invoices:', successfulInvoices);
+      setProcessedInvoices(successfulInvoices);
       setShowResults(true);
 
       toast({
