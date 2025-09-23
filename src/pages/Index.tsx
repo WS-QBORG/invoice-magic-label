@@ -1,5 +1,6 @@
 import { InvoiceProcessor } from '@/components/InvoiceProcessor';
 import { OneDriveSettings } from '@/components/OneDriveSettings';
+import { LocalFolderSettings } from '@/components/LocalFolderSettings';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { FileText, Database, Zap, Shield } from 'lucide-react';
 
@@ -43,6 +44,9 @@ const Index = () => {
             
             {/* OneDrive Integration */}
             <OneDriveSettings />
+            
+            {/* Local Folder Integration */}
+            <LocalFolderSettings />
             
             {/* How it works */}
             <Card>
