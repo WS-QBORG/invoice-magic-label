@@ -1107,6 +1107,14 @@ export function InvoiceProcessor() {
                         <Button
                           variant="ghost"
                           size="sm"
+                          onClick={() => downloadAnnotatedInvoice(invoice)}
+                          disabled={!invoice.fileName}
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => handleDeleteInvoice(invoice)}
                           disabled={!invoice.id}
                         >
